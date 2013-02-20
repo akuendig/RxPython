@@ -1,9 +1,8 @@
-from .functional import *
-from .disposable import *
-from .internal import *
+from .disposable import SingleAssignmentDisposable
+from .internal import noop, defaultError
 
 class Observer(object):
-  @staticMethod
+  @staticmethod
   def create(onNext=noop, onError=defaultError, onComplete=noop):
     return AnonymousObserver(onNext, onError, onComplete)
 
@@ -25,7 +24,7 @@ class AutoDetachObserver(Observer):
 
     try:
       self.observer.onNext(value)
-      noError = true
+      noError = True
     finally:
       if not noError:
         self.dispose()
