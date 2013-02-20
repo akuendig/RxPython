@@ -1,7 +1,9 @@
+import sys
 from .observable import Observable
-from .observer import Observer
+from .observer import Observer, ScheduledObserver
 from .disposable import Disposable
-from .internal import errorIfDisposed
+from .scheduler import currentThreadScheduler
+from .internal import errorIfDisposed, Struct
 
 class Subject(Observable, Observer):
   def _subscribe(self, observer):
@@ -222,4 +224,117 @@ class BehaviorSubject(Observable, Observer):
     self.observers = []
     self.value = None
     self.exception = None
+
+
+class ReplaySubject(Observable, Observer):
+
+  class RemovableDisposable(Disposable):
+    def __init__(self, subject, observer):
+      super(self.__class__, self).__init__()
+      self.subject = subject
+      self.observer = observer
+
+    def dispose(self):
+      self.observer.dispose()
+
+      if not self.subject.isDisposed:
+        self.subject.observers.remove(self.observer)
+
+  def _subscribe(self, observer):
+    so = ScheduledObserver(self.scheduler, observer)
+    subscription = self.__class__(self, so)
+
+    errorIfDisposed(self)
+
+    self._trim(self.scheduler.now())
+    self.observers.append(so)
+
+    n = len(self.q)
+
+    for node in self.q:
+      so.onNext(node.value)
+
+    if self.hasError:
+      n += 1
+      so.onError(self.exception)
+    elif self.isStopped:
+      n += 1
+      so.onCompleted()
+
+    so.ensureActive(n)
+
+    return subscription
+
+  def __init__(self, bufferSize = sys.maxsize, window = sys.maxsize, scheduler = currentThreadScheduler):
+    self.bufferSize = bufferSize
+    self.window = window
+    self.scheduler = scheduler
+    self.q = []
+    self.observers = []
+    self.isStopped = False
+    self.isDisposed = False
+    self.hasError = False
+    self.exception = None
+    super(ReplaySubject, self).__init__(self._subscribe)
+
+  def _trim(self, now):
+    self.q = self.q[-self.bufferSize:]
+    self.q = [node for node in self.q if self.window >= (now - node.interval)]
+
+  def onNext(self, value):
+    errorIfDisposed(self)
+
+    if self.isStopped:
+      return
+
+    now = self.scheduler.now()
+
+    self.q.append(Struct(interval = now, value = value))
+    self._trim(now)
+
+    for observer in list(self.observers):
+      observer.onNext(value)
+      observer.ensureActive()
+
+  def onError(self, exception):
+    errorIfDisposed(self)
+
+    if self.isStopped:
+      return
+
+    self.isStopped = True
+    self.exception = exception
+    self.hasError = True
+
+    now = self.scheduler.now()
+
+    self._trim(now)
+
+    for observer in list(self.observers):
+      observer.onError(exception)
+      observer.ensureActive()
+
+    self.observers = []
+
+  def onCompleted(self):
+    errorIfDisposed(self)
+
+    if self.isStopped:
+      return
+
+    self.isStopped = True
+
+    now = self.scheduler.now()
+
+    self._trim(now)
+
+    for observer in list(self.observers):
+      observer.onCompleted()
+      observer.ensureActive()
+
+    self.observers = []
+
+  def dispose(self):
+    self.isDisposed = True
+    self.observers = []
 
