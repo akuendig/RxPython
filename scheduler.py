@@ -1,76 +1,14 @@
-from .disposable import Disposable, CompositeDisposable
+from .disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
 from .functional import bind
-from .internal import defaultNow
-from threading import Timer
-
-class PeriodicTimerWithState:
-  def __init__(self, interval, function, state):
-    self.interval = interval
-    self.function = function
-    self.args = state
-
-  def _scheduled(self, run = True):
-    if run:
-      self.state = self.function(self.state)
-
-    #race condition
-    self.timer = Timer(self.interval, self._scheduled)
-
-  def start(self):
-    self._scheduled(False)
-
-    #race condition
-    return Disposable.create(lambda: self.timer.cancel())
+from .concurrency import *
+from .internal import defaultNow, defaultSubComparer
+import threading
+from threading import Timer, RLock
+from queue import PriorityQueue
+from time import sleep
 
 
-class RecursiveScheduledFunction:
-  def __init__(self, action, scheduler, method = None):
-    self.action = action
-    self.schedule = scheduler if method == None else scheduler[method]
-    self.group = CompositeDisposable()
-
-    if method == None:
-      self.schedule = scheduler.scheduleWithState
-    else:
-      self.schedule = bind(getattr(scheduler, method), scheduler)
-
-  def run(self, state):
-    self.action(state, self.actionCallback)
-
-  def actionCallback(self, newState, dueTime = None):
-    self.isDone = False
-    self.isAdded = False
-
-    if dueTime == None:
-      self.cancel = self.schedule(
-        newState,
-        self.schedulerCallback
-      )
-    else:
-      self.cancel = self.schedule(
-        newState,
-        dueTime,
-        self.schedulerCallback
-      )
-
-    # Assuming no concurrent access otherwise we would have
-    # a race for self.group, self.isAdded and self.isDone
-    if not self.isDone:
-      self.group.add(self.cancel)
-      self.isAdded = True
-
-  def schedulerCallback(self, scheduler, state):
-    if self.isAdded:
-      self.group.remove(self.cancel)
-    else:
-      self.isDone = True
-
-    self.run(state)
-
-    return Disposable.empty()
-
-
-class Scheduler(object):
+class Scheduler:
   """Provides a set of static properties to access commonly
   used Schedulers."""
 
@@ -79,6 +17,11 @@ class Scheduler(object):
     self._schedule = schedule
     self._scheduleRelative = scheduleRelative
     self._scheduleAbsolute = scheduleAbsolute
+
+  @staticmethod
+  def invokeAction(scheduler, action):
+    action()
+    return Disposable.empty()
 
   @staticmethod
   def invokeRecImmediate(scheduler, pair):
@@ -100,22 +43,31 @@ class Scheduler(object):
 
     return scheduled.group
 
-  @staticmethod
-  def invokeAction(scheduler, action):
-    action()
-    return Disposable.empty()
-
   def catchException(self, handler):
     return CatchScheduler(self, handler)
 
+  # longrunning scheduling
+  # action takes as parameter: state and cancel
+  # and return None
+  def scheduleLongRunning(self, action):
+    return self.scheduleLongRunningWithState(None, lambda s, cancel: action(cancel))
+
+  def scheduleLongRunningWithState(self, state, action):
+    raise NotImplementedError()
+
+  # periodic scheduling
+  # action takes as parameter: state
+  # and return: state
   def schedulePeriodic(self, period, action):
-    return self.schedulerPeriodicWithState(None, period, lambda s: action())
+    return self.schedulePeriodicWithState(None, period, lambda s: action())
 
   def schedulePeriodicWithState(self, state, period, action):
     timer = PeriodicTimerWithState(period, action, state)
     return timer.start()
 
-  #Suspiciouse
+  # once scheduling
+  # action takes as parameter: scheduler, state
+  # and return: disposable to cancel
   def schedule(self, action):
     return self._schedule(action, Scheduler.invokeAction)
 
@@ -134,11 +86,12 @@ class Scheduler(object):
   def scheduleWithAbsoluteAndState(self, state, dueTime, action):
     return self._scheduleAbsolute(state, dueTime, action)
 
+  # recursive scheduling
   def scheduleRecursive(self, action):
     return self.scheduleRecursiveWithState(
       action,
-      lambda _action, _self: _action(lambda: _self(_action)
-    ))
+      lambda _action, _self: _action(lambda: _self(_action))
+    )
 
   def scheduleRecursiveWithState(self, state, action):
     return self.scheduleWithState((state, action), Scheduler.invokeRecImmediate)
@@ -147,28 +100,28 @@ class Scheduler(object):
     return self.scheduleRecursiveWithRelativeAndState(
       action,
       dueTime,
-      lambda _action, _self: _action(lambda dt: _self(_action, dt)
-    ))
+      lambda _action, _self: _action(lambda dt: _self(_action, dt))
+    )
 
   def scheduleRecursiveWithRelativeAndState(self, state, dueTime, action):
     return self._scheduleRelative(
       (state, action),
       dueTime,
-      lambda s, p: Scheduler.invokeRecDate(s, p, 'scheduleWithRelativeAndState'
-    ))
+      lambda s, p: Scheduler.invokeRecDate(s, p, 'scheduleWithRelativeAndState')
+    )
 
   def scheduleRecursiveWithAbsolute(self, dueTime, action):
     return self.scheduleRecursiveWithAbsoluteAndState(
       action,
-      lambda _action, _self: _action(lambda: _self(_action)
-    ))
+      lambda _action, _self: _action(lambda: _self(_action))
+    )
 
   def scheduleRecursiveWithAbsoluteAndState(self, state, dueTime, action):
     return self._scheduleRelative(
       (state, action),
       dueTime,
-      lambda s, p: Scheduler.invokeRecDate(s, p, 'scheduleWithAbsoluteAndState'
-    ))
+      lambda s, p: Scheduler.invokeRecDate(s, p, 'scheduleWithAbsoluteAndState')
+    )
 
   @staticmethod
   def now():
@@ -180,4 +133,321 @@ class Scheduler(object):
       return 0
     else:
       return timeSpan
+
+
+class CatchWrapper:
+  def __init__(self, parent, action):
+    self.parent = parent
+    self.action = action
+
+  def __call__(self, _self, _state):
+    try:
+      return self.action(self.parent._getRecursiveWrapper(_self), _state)
+    except Exception as e:
+      if not self.parent._handler(e): raise e
+      return Disposable.empty()
+
+
+class CatchScheduler(Scheduler):
+  def _localNow(self):
+    return self._scheduler.now()
+
+  def _scheduleNow(self, state, action):
+    return self._scheduler.scheduleWithState(state, self._wrap(action))
+
+  def _scheduleRelative(self, state, dueTime, action):
+    return self._scheduler.scheduleWithRelativeAndState(state, dueTime, self._wrap(action))
+
+  def _scheduleAbsolute(self, state, dueTime, action):
+    return self._scheduler.scheduleWithAbsoluteAndState(state, dueTime, self._wrap(action))
+
+  def __init__(self, scheduler, handler):
+    super(CatchScheduler, self).__init__(
+      self._localNow,
+      self._scheduleNow,
+      self._scheduleRelative,
+      self._scheduleAbsolute
+    )
+
+    self._scheduler = scheduler
+    self._handler = handler
+    self._recursiveOriginal = None
+    self._recursiveWrapper = None
+
+    self.lock = RLock()
+
+  def _clone(self, scheduler):
+    return CatchScheduler(scheduler, self._handler)
+
+  def _wrap(self, action):
+    return CatchWrapper(self, action)
+
+  def _getRecursiveWrapper(self, scheduler):
+    with self.lock:
+      if self._recursiveOriginal != scheduler:
+        self._recursiveOriginal = scheduler
+
+        wrapper = self._clone(scheduler)
+        wrapper._recursiveOriginal = scheduler
+        wrapper._recursiveWrapper = wrapper
+
+        self._recursiveWrapper = wrapper
+
+    return self._recursiveWrapper
+
+  def schedulePeriodicWithState(self, state, period, action):
+    failed = False
+    failureLock = RLock
+    d = SingleAssignmentDisposable()
+
+    def scheduled(_state):
+      with failureLock:
+        nonlocal failed
+
+        if failed:
+          return None
+
+        try:
+          return action(_state)
+        except Exception as e:
+          failed = True
+
+          if !self.handler(e):
+            raise e
+
+          d.dispose()
+
+          return None
+
+    d.setDisposable(
+      self._scheduler.schedulePeriodicWithState(
+        state,
+        period,
+        scheduled
+    ))
+
+    return d
+
+
+class CurrentThreadScheduler(Scheduler):
+  def __init__(self):
+    super(CurrentThreadScheduler, self).__init__(
+      defaultNow,
+      self._scheduleNow,
+      self._scheduleRelative,
+      self._scheduleAbsolute
+    )
+
+  def scheduleRequired(self):
+    return self._queue == None
+
+  def ensureTrampoline(self, action):
+    if self.scheduleRequired():
+      return self.schedule(action)
+    else:
+      return action()
+
+  def _queue():
+    def fget(self):
+      if not hasattr(threading.local(), 'reactive_extensions_current_thread_queue')
+        threading.local().reactive_extensions_current_thread_queue = None
+
+      return threading.local().reactive_extensions_current_thread_queue
+    def fset(self, value):
+      threading.local().reactive_extensions_current_thread_queue = value
+    def fdel(self):
+      del threading.local().reactive_extensions_current_thread_queue
+    return locals()
+  _queue = property(**_queue())
+
+  def _init(self):
+    self._queue = PriorityQueue(4)
+
+  def _dispose(self):
+    self._queue = None
+
+  def _run(self):
+    while self._queue.not_empty():
+      item = self._queue.get()
+
+      if item.isCancelled():
+        continue
+
+      sleep(item.dueTime - Scheduler.now())
+
+      if not item.isCancelled():
+        item.invoke()
+
+  def _scheduleNow(self, state, action):
+    return self.scheduleWithRelativeAndState(state, 0, action)
+
+  def _scheduleRelative(self, dueTime, action):
+    dt = self.now() + Scheduler.normalize(dueTime)
+    si = ScheduledItem(self, state, action, dt)
+
+    if self._queue == None:
+      self._init()
+
+      try:
+        self._queue.put(si)
+        self._run()
+      finally:
+        self._dispose()
+    else:
+      self._queue.put(si)
+
+    return si.disposable
+
+  def _scheduleAbsolute(self, state, dueTime, action):
+    return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
+
+
+currentThreadScheduler = CurrentThreadScheduler()
+Scheduler.currentThread = currentThreadScheduler
+
+class HistoricalScheduler(VirtualTimeScheduler):
+  """Provides a virtual time scheduler that uses Date for
+  absolute time and number for relative time."""
+  def __init__(self, initialClock = 0, comparer = defaultSubComparer):
+    super(HistoricalScheduler, self).__init__(initialClock, comparer)
+    self.clock = initialClock
+    self.cmp = comparer
+
+  def add(self, absolute, relative):
+    return absolute + relative
+
+  def toDateTimeOffset(self, absolute):
+    return datetime.fromtimestamp(absolute)
+
+  def toRelative(self, timeSpan):
+    return timeSpan
+
+
+class ImmediateScheduler(Scheduler):
+  """Provides a scheduler that can not schedule"""
+  def __init__(self):
+    super(ImmediateScheduler, self).__init__(
+      defaultNow,
+      self._scheduleNow,
+      self._scheduleRelative,
+      self._scheduleAbsolute
+    )
+
+  def _scheduleNow(self, state, action):
+    return action(self, state)
+
+  def _scheduleRelative(self, state, dueTime, action):
+    if dueTime > 0:
+      raise Exception("Scheduler is not allowed to block the current thread")
+
+    return action(this, state)
+
+  def _scheduleAbsolute(self, state, dueTime, action):
+    return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
+
+
+immediateScheduler = ImmediateScheduler()
+Scheduler.immediate = immediateScheduler
+
+class VirtualTimeScheduler(Scheduler):
+  """Creates a new virtual time scheduler with the
+  specified initial clock value and absolute time comparer."""
+
+  def _localNow(self):
+    return self.toDateTimeOffset(self.clock)
+
+  def _scheduleNow(self, state, action):
+    return self.scheduleAbsoluteWithState(state, self.clock, action)
+
+  def _scheduleRelative(self, state, dueTime, action):
+    return self.scheduleRelativeWithState(state, self.toRelative(dueTime), action)
+
+  def _scheduleAbsolute(self, state, dueTime, action):
+    return self.scheduleRelativeWithState(state, self.toRelative(dueTime - self.now()), action)
+
+  def __init__(self, clock, comparer):
+    super(VirtualTimeScheduler, self).__init__(
+      self._localNow,
+      self._scheduleNow,
+      self._scheduleRelative,
+      self._scheduleAbsolute
+    )
+    self.clock = clock
+    self.comparer = comparer
+    self.isEnabled = False
+    self.queue = PriorityQueue(1024)
+
+  def schedulePeriodicWithState(self, state, period, action):
+    raise Exception('Not implemented')
+
+  def scheduleRelativeWithState(self, state, dueTime, action):
+    runAt = self.add(self.clock, dueTime)
+    return self.scheduleAbsoluteWithState(state, runAt, action)
+
+  def scheduleRelative(self, dueTime, action):
+    return self.scheduleRelativeWithState(action, dueTime, Scheduler.invokeAction)
+
+  def scheduleAbsolute(self, dueTime, action):
+    return self.scheduleAbsoluteWithState(action, dueTime, Scheduler.invokeAction)
+
+  def scheduleAbsoluteWithState(self, state, dueTime, action):
+    si = ScheduledItem(self, state, run, dueTime, self.comparer)
+
+    self.queue.put(si)
+
+    return si.disposable
+
+  def start(self, until):
+    if not self.isEnabled:
+      self.isEnabled = True
+
+      while self.isEnabled:
+        next = self.getNext()
+        nextIsTooLate = until != None and self.comparer(next.dueTime, until) > 0
+
+        if next == None or nextIsTooLate:
+          self.isEnabled = False
+        else:
+          if self.comparer(next.dueTime, self.clock) > 0:
+            self.clock = next.dueTime
+
+          next.invoke()
+
+  def stop(self):
+    self.isEnabled = False
+
+  def advanceTo(self, time):
+    dueToClock = self.comparer(time, self.clock)
+
+    if dueToClock < 0:
+      raise Exception('Argument out of range')
+
+    if dueToClock == 0
+      return
+
+    self.start(time)
+
+  def advanceBy(self, time):
+    return self.advanceTo(self.add(self.clock, time))
+
+  def sleep(self, time):
+    until = self.add(self.clock, time)
+
+    if self.comparer(self.clock, until) >= 0:
+      raise Exception('Argument out of range')
+
+    self.clock = until
+
+  def getNext(self):
+    while True:
+      next = self.queue.get_nowait()
+
+      if next == None:
+        return None
+      elif next.isCancelled():
+        continue
+      else:
+        return next
+
+
 
