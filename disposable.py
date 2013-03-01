@@ -105,14 +105,14 @@ class RefCountDisposable(Disposable):
       return self.InnerDisposable(self)
 
 
-class SerialDisposble(Disposable):
+class SerialDisposable(Disposable):
   """Represents a disposable resource whose underlying
   disposable resource can be replaced by
   another disposable resource, causing automatic
   disposal of the previous underlying disposable resource."""
 
   def __init__(self):
-    super(SerialDisposble, self).__init__()
+    super(SerialDisposable, self).__init__()
     self.isDisposed = False
     self.current = None
 
@@ -138,12 +138,12 @@ class SerialDisposble(Disposable):
     self.isDisposed = True
 
 
-class CompositDisposable(Disposable):
+class CompositeDisposable(Disposable):
   """Represents a group of disposable resources that
   are disposed together"""
 
   def __init__(self, first = None, *rest):
-    super(CompositDisposable, self).__init__()
+    super(CompositeDisposable, self).__init__()
 
     if first != None and (isinstance(first, list) or isinstance(first, tuple)):
       self.disposables = list(first)
