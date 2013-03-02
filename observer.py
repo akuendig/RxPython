@@ -1,4 +1,5 @@
 from .disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
+from .notification import Notification
 from .internal import noop, defaultError
 from threading import RLock, Semaphore
 from queue import Queue
@@ -14,9 +15,9 @@ class Observer(object):
   @staticmethod
   def fromNotifier(handler):
     return AnonymousObserver(
-      lambda x: handler(notificationCreateOnNext(x)),
-      lambda ex: handler(notificationCreateOnError(ex)),
-      lambda: handler(notificationCreateOnCompleted())
+      lambda x: handler(Notification.createOnNext(x)),
+      lambda ex: handler(Notification.createOnError(ex)),
+      lambda: handler(Notification.createOnCompleted())
     )
 
   def toNotifier(self):
@@ -112,6 +113,22 @@ class AnonymousObserver(ObserverBase):
     return AutoDetachObserver(self.onNext, self.onError, self.onCompleted)
 
 
+class AsyncLockObserver(ObserverBase):
+  def __init__(self, observer, gate):
+    super(AsyncLockObserver, self).__init__()
+    self.observer = observer
+    self.gate = gate
+
+  def onNextCore(self, value):
+    self.gate.wait(lambda: self.observer.onNext(value))
+
+  def onErrorCore(self, exception):
+    self.gate.wait(lambda: self.observer.onNext(exception))
+
+  def onCompletedCore(self):
+    self.gate.wait(lambda: self.observer.onCompleted())
+
+
 class AutoDetachObserver(ObserverBase):
   def __init__(self, onNext=noop, onError=defaultError, onCompleted=noop):
     super(AutoDetachObserver, self).__init__(onNext, onError, onCompleted)
@@ -199,22 +216,6 @@ class CheckedObserver(Observer):
         raise Exception("This observer already terminated")
       else:
         self.state = CheckedObserver.BUSY
-
-
-class AsyncLockObserver(ObserverBase):
-  def __init__(self, observer, gate):
-    super(AsyncLockObserver, self).__init__()
-    self.observer = observer
-    self.gate = gate
-
-  def onNextCore(self, value):
-    self.gate.wait(lambda: self.observer.onNext(value))
-
-  def onErrorCore(self, exception):
-    self.gate.wait(lambda: self.observer.onNext(exception))
-
-  def onCompletedCore(self):
-    self.gate.wait(lambda: self.observer.onCompleted())
 
 
 class ScheduledObserver(ObserverBase):
