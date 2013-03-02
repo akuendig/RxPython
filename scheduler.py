@@ -1,7 +1,7 @@
-from .disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
-from .functional import bind
-from .concurrency import *
-from .internal import defaultNow, defaultSubComparer
+from disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
+from functools import partial as bind
+from concurrency import Atomic
+from internal import defaultNow, defaultSubComparer
 import threading
 from threading import Timer, RLock
 from queue import PriorityQueue
@@ -212,7 +212,7 @@ class CatchScheduler(Scheduler):
         except Exception as e:
           failed = True
 
-          if !self.handler(e):
+          if not self.handler(e):
             raise e
 
           d.dispose()
@@ -249,7 +249,7 @@ class CurrentThreadScheduler(Scheduler):
 
   def _queue():
     def fget(self):
-      if not hasattr(threading.local(), 'reactive_extensions_current_thread_queue')
+      if not hasattr(threading.local(), 'reactive_extensions_current_thread_queue'):
         threading.local().reactive_extensions_current_thread_queue = None
 
       return threading.local().reactive_extensions_current_thread_queue
@@ -301,53 +301,6 @@ class CurrentThreadScheduler(Scheduler):
   def _scheduleAbsolute(self, state, dueTime, action):
     return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
 
-
-currentThreadScheduler = CurrentThreadScheduler()
-Scheduler.currentThread = currentThreadScheduler
-
-class HistoricalScheduler(VirtualTimeScheduler):
-  """Provides a virtual time scheduler that uses Date for
-  absolute time and number for relative time."""
-  def __init__(self, initialClock = 0, comparer = defaultSubComparer):
-    super(HistoricalScheduler, self).__init__(initialClock, comparer)
-    self.clock = initialClock
-    self.cmp = comparer
-
-  def add(self, absolute, relative):
-    return absolute + relative
-
-  def toDateTimeOffset(self, absolute):
-    return datetime.fromtimestamp(absolute)
-
-  def toRelative(self, timeSpan):
-    return timeSpan
-
-
-class ImmediateScheduler(Scheduler):
-  """Provides a scheduler that can not schedule"""
-  def __init__(self):
-    super(ImmediateScheduler, self).__init__(
-      defaultNow,
-      self._scheduleNow,
-      self._scheduleRelative,
-      self._scheduleAbsolute
-    )
-
-  def _scheduleNow(self, state, action):
-    return action(self, state)
-
-  def _scheduleRelative(self, state, dueTime, action):
-    if dueTime > 0:
-      raise Exception("Scheduler is not allowed to block the current thread")
-
-    return action(this, state)
-
-  def _scheduleAbsolute(self, state, dueTime, action):
-    return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
-
-
-immediateScheduler = ImmediateScheduler()
-Scheduler.immediate = immediateScheduler
 
 class VirtualTimeScheduler(Scheduler):
   """Creates a new virtual time scheduler with the
@@ -422,7 +375,7 @@ class VirtualTimeScheduler(Scheduler):
     if dueToClock < 0:
       raise Exception('Argument out of range')
 
-    if dueToClock == 0
+    if dueToClock == 0:
       return
 
     self.start(time)
@@ -450,4 +403,148 @@ class VirtualTimeScheduler(Scheduler):
         return next
 
 
+class HistoricalScheduler(VirtualTimeScheduler):
+  """Provides a virtual time scheduler that uses Date for
+  absolute time and number for relative time."""
+  def __init__(self, initialClock = 0, comparer = defaultSubComparer):
+    super(HistoricalScheduler, self).__init__(initialClock, comparer)
+    self.clock = initialClock
+    self.cmp = comparer
 
+  def add(self, absolute, relative):
+    return absolute + relative
+
+  def toDateTimeOffset(self, absolute):
+    return datetime.fromtimestamp(absolute)
+
+  def toRelative(self, timeSpan):
+    return timeSpan
+
+
+class ImmediateScheduler(Scheduler):
+  """Provides a scheduler that can not schedule"""
+  def __init__(self):
+    super(ImmediateScheduler, self).__init__(
+      defaultNow,
+      self._scheduleNow,
+      self._scheduleRelative,
+      self._scheduleAbsolute
+    )
+
+  def _scheduleNow(self, state, action):
+    return action(self, state)
+
+  def _scheduleRelative(self, state, dueTime, action):
+    if dueTime > 0:
+      raise Exception("Scheduler is not allowed to block the current thread")
+
+    return action(this, state)
+
+  def _scheduleAbsolute(self, state, dueTime, action):
+    return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
+
+
+class RecursiveScheduledFunction:
+  def __init__(self, action, scheduler, method = None):
+    self.action = action
+    self.schedule = scheduler if method == None else scheduler[method]
+    self.group = CompositeDisposable()
+    self.lock = RLock()
+
+    if method == None:
+      self.schedule = scheduler.scheduleWithState
+    else:
+      self.schedule = bind(getattr(scheduler, method), scheduler)
+
+  def run(self, state):
+    self.action(state, self.actionCallback)
+
+  def actionCallback(self, newState, dueTime = None):
+    self.isDone = False
+    self.isAdded = False
+
+    if dueTime == None:
+      self.cancel = self.schedule(
+        newState,
+        self.schedulerCallback
+      )
+    else:
+      self.cancel = self.schedule(
+        newState,
+        dueTime,
+        self.schedulerCallback
+      )
+
+    with self.lock:
+      if not self.isDone:
+        self.group.add(self.cancel)
+        self.isAdded = True
+
+  def schedulerCallback(self, scheduler, state):
+    with self.lock:
+      if self.isAdded:
+        self.group.remove(self.cancel)
+      else:
+        self.isDone = True
+
+    self.run(state)
+
+    return Disposable.empty()
+
+
+class PeriodicTimerWithState:
+  def __init__(self, interval, function, state):
+    self.interval = interval
+    self.function = function
+    self.args = state
+    self.lock = RLock
+
+  def _scheduled(self, run = True):
+    if run:
+      self.state = self.function(self.state)
+
+    with self.lock:
+      self.timer = Timer(self.interval, self._scheduled)
+
+  def _cancel(self):
+    with self.lock:
+      self.timer.cancel()
+
+  def start(self):
+    self._scheduled(False)
+
+    #race condition
+    return Disposable.create(self._cancel)
+
+
+class ScheduledItem:
+  """Provides a scheduled cancelable item with state and comparer"""
+  def __init__(self, scheduler, state, action, dueTime, comparer = defaultSubComparer):
+    self.scheduler = scheduler
+    self.state = state
+    self.action = action
+    self.dueTime = dueTime
+    self.comparer = comparer
+    self.disposable = SingleAssignmentDisposable()
+
+  def invoke(self):
+    self.disposable.disposable(self.invokeCore())
+
+  def isCancelled(self):
+    return self.disposable.isDisposed
+
+  def invokeCore(self):
+    return self.action(self.scheduler, self.state)
+
+  def compareTo(self, other):
+    return self.comparer(self.dueTime, other.dueTime)
+
+  def __lt__(self, other):
+    return self.compareTo(other) < 0
+
+
+immediateScheduler = ImmediateScheduler()
+Scheduler.immediate = immediateScheduler
+
+currentThreadScheduler = CurrentThreadScheduler()
+Scheduler.currentThread = currentThreadScheduler

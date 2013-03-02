@@ -1,7 +1,7 @@
-from .disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
-from .notification import Notification
-from .concurrency import Atomic
-from .internal import noop, defaultError
+from disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
+from notification import Notification
+from concurrency import Atomic
+from internal import noop, defaultError
 from threading import Semaphore
 from queue import Queue
 
@@ -88,16 +88,19 @@ class ObserverBase(Observer):
 
 class AnonymousObserver(ObserverBase):
   def __init__(self, onNext=noop, onError=defaultError, onCompleted=noop):
-    super(AnonymousObserver, self).__init__(onNext, onError, onCompleted)
+    super(AnonymousObserver, self).__init__()
+    self._onNext = onNext
+    self._onError = onError
+    self._onCompleted = onCompleted
 
   def onNextCore(self, value):
-    self.onNext(value)
+    self._onNext(value)
 
   def onErrorCore(self, exception):
-    self.onError(exception)
+    self._onError(exception)
 
   def onCompletedCore(self):
-    self.onCompleted()
+    self._onCompleted()
 
   def makeSafe(self):
     return AutoDetachObserver(self.onNext, self.onError, self.onCompleted)
@@ -120,8 +123,9 @@ class AsyncLockObserver(ObserverBase):
 
 
 class AutoDetachObserver(ObserverBase):
-  def __init__(self, onNext=noop, onError=defaultError, onCompleted=noop):
-    super(AutoDetachObserver, self).__init__(onNext, onError, onCompleted)
+  def __init__(self, observer):
+    super(AutoDetachObserver, self).__init__()
+    self.observer = observer
     self.m = SingleAssignmentDisposable()
 
   def onNextCore(self, value):
@@ -167,6 +171,7 @@ class CheckedObserver(Observer):
   DONE = 2
 
   def __init__(self, observer):
+    super(CheckedObserver, self).__init__()
     self.observer = observer
     self.state = Atomic(CheckedObserver.IDLE)
 
@@ -423,3 +428,11 @@ class SynchronizedObserver(ObserverBase):
   def onCompletedCore(self):
     with self.outerLock:
       self.observer.onCompleted()
+
+
+noopObserver = Observer.create(noop, noop, noop)
+Observer.noop = noopObserver
+
+doneObserver = Observer.create(noop, noop, noop)
+doneObserver.exception = None
+Observer.done = doneObserver

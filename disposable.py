@@ -1,4 +1,6 @@
-from .concurrency import Atomic
+from concurrency import Atomic
+from threading import RLock
+from collections import deque
 
 class Disposable:
   """Represents a disposable object"""
@@ -271,5 +273,40 @@ class SingleAssignmentDisposable(Cancelable):
       self.current = None
 
 
+class AsyncLock(Disposable):
+  def __init__(self):
+    super(AsyncLock, self).__init__()
 
+    self.queue = deque()
+    self.isAcquired = False
+    self.hasFaulted = False
+    self.lock = RLock()
+
+  def wait(self, action):
+    isOwner = False
+
+    with self.lock:
+      if not self.hasFaulted:
+        isOwner = not self.isAcquired
+        self.queue.appendleft(action)
+        self.isAcquired  = True
+
+    if isOwner:
+      while True:
+        if len(self.queue) == 0:
+          self.isAcquired = False
+          break
+
+        work = self.queue.pop()
+
+        try:
+          work()
+        except Exception as e:
+          self.dispose()
+          raise e
+
+  def dispose(self):
+    with self.lock:
+      self.queue.clear()
+      self.hasFaulted = True
 

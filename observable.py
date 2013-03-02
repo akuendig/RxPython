@@ -1,8 +1,12 @@
-from .observer import Observer, AutoDetachObserver
-from .scheduler import currentThreadScheduler
-from .disposable import Disposable
+from observer import Observer, AutoDetachObserver
+from scheduler import currentThreadScheduler
+from disposable import Disposable
 
 class Observable(object):
+  """Provides all extension methods to Observable"""
+
+
+class ObservableBase(Observable):
   def subscribe(self, observerOrOnNext=None, onError=None, onComplete=None):
     observer = observerOrOnNext
 
@@ -36,10 +40,10 @@ class Observable(object):
 
   @classmethod
   def create(cls, subscribe):
-    return Observable(subscribe)
+    return ObservableBase(subscribe)
 
 
-class AnonymousObservable(Observable):
+class AnonymousObservable(ObservableBase):
   def __init__(self, subscribe):
     super(AnonymousObservable, self).__init__()
     self._subscribe = subscribe
