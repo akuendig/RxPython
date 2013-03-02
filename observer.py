@@ -1,7 +1,8 @@
 from .disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
 from .notification import Notification
+from .concurrency import Atomic
 from .internal import noop, defaultError
-from threading import RLock, Semaphore
+from threading import Semaphore
 from queue import Queue
 
 class Observer(object):
@@ -46,44 +47,33 @@ class ObserverBase(Observer):
   where OnError and OnCompleted are terminal messages."""
 
   def __init__(self):
-    self.isStopped = False
-    self.lock = RLock()
+    self.isStopped = Atomic(False)
+    self.lock = self.isStopped.lock
 
   def onNext(self, value):
     with self.lock:
-      if self.isStopped:
+      if self.isStopped.value:
         return
 
       self.onNextCore(value)
 
   def onError(self, exception):
-    with self.lock:
-      if self.isStopped:
-        return
-
-      self.isStopped = True
+    if not self.isStopped.exchange(True):
       self.onErrorCore(exception)
 
   def onCompleted(self):
-    with self.lock:
-      if self.isStopped:
-        return
-
-      self.isStopped = True
+    if not self.isStopped.exchange(True):
       self.onCompletedCore()
 
   def dispose(self):
-    with self.lock:
-      self.isStopped = True
+    self.isStopped.value = True
 
   def fail(self, exception):
-    with self.lock:
-      if self.isStopped:
-        return False
-
-      self.isStopped = True
+    if self.isStopped.exchange(True):
+      # isStopped was already true
+      return False
+    else:
       self.onErrorCore(exception)
-
       return True
 
   def onNextCore(self, value):
@@ -178,8 +168,7 @@ class CheckedObserver(Observer):
 
   def __init__(self, observer):
     self.observer = observer
-    self.state = CheckedObserver.IDLE
-    self.lock = RLock()
+    self.state = Atomic(CheckedObserver.IDLE)
 
   def onNext(self, value):
     self.checkAccess()
@@ -187,8 +176,7 @@ class CheckedObserver(Observer):
     try:
       self.observer.onNext(value)
     finally:
-      with self.lock:
-        self.state = CheckedObserver.IDLE
+      self.state.value = CheckedObserver.IDLE
 
   def onError(self, exception):
     self.checkAccess()
@@ -196,8 +184,7 @@ class CheckedObserver(Observer):
     try:
       self.observer.onError(exception)
     finally:
-      with self.lock:
-        self.state = CheckedObserver.DONE
+      self.state.value = CheckedObserver.DONE
 
   def onCompleted(self):
     self.checkAccess()
@@ -205,17 +192,15 @@ class CheckedObserver(Observer):
     try:
       self.observer.onCompleted()
     finally:
-      with self.lock:
-        self.state = CheckedObserver.DONE
+      self.state.value = CheckedObserver.DONE
 
   def checkAccess(self):
-    with self.lock:
-      if self.state == CheckedObserver.BUSY:
-        raise Exception("This observer is currently busy")
-      elif self.state == CheckedObserver.DONE:
-        raise Exception("This observer already terminated")
-      else:
-        self.state = CheckedObserver.BUSY
+    old = self.state.compareExchange(CheckedObserver.BUSY, CheckedObserver.IDLE)
+
+    if old == CheckedObserver.BUSY:
+      raise Exception("This observer is currently busy")
+    elif old == CheckedObserver.DONE:
+      raise Exception("This observer already terminated")
 
 
 class ScheduledObserver(ObserverBase):
@@ -228,18 +213,16 @@ class ScheduledObserver(ObserverBase):
     super(ScheduledObserver, self).__init__()
     self.scheduler = scheduler
     self.observer = observer
-    self.state = ScheduledObserver.STOPPED
+    self.state = Atomic(ScheduledObserver.STOPPED, self.lock)
     self.disposable = SerialDisposable()
 
     self.failed = False
     self.exception = None
     self.completed = False
 
-    self.lock = RLock()
+    self.queue = Queue()
     self.dispatcherJob = None
     self.dispatcherEvent = Semaphore(0)
-
-    self.queue = Queue()
 
   def ensureDispatcher(self):
     if self.dispatcherJob != None:
@@ -299,27 +282,24 @@ class ScheduledObserver(ObserverBase):
     except NotImplementedError:
       self.ensureActiveSlow()
 
-  def _casState(self, value, expected):
-    with self.lock:
-      old = self.state
-
-      if old == expected:
-        self.state = value
-
-      return old
-
   def ensureActiveSlow(self):
     isOwner = False
 
     while True:
-      old = self._casState(ScheduledObserver.RUNNING, ScheduledObserver.STOPPED)
+      old = self.state.compareExchange(
+        ScheduledObserver.RUNNING,
+        ScheduledObserver.STOPPED
+      )
 
       if old == ScheduledObserver.STOPPED:
         isOwner = True
         break
       elif old == ScheduledObserver.FAULTED:
         return
-      elif old == ScheduledObserver.PENDING or old == ScheduledObserver.RUNNING and self._casState(ScheduledObserver.PENDING, ScheduledObserver.RUNNING) == ScheduledObserver.RUNNING:
+      elif (
+          (old == ScheduledObserver.PENDING or old == ScheduledObserver.RUNNING) and
+          self._casState(ScheduledObserver.PENDING, ScheduledObserver.RUNNING) == ScheduledObserver.RUNNING
+        ):
         break
 
     if isOwner:
@@ -339,8 +319,7 @@ class ScheduledObserver(ObserverBase):
         if not self.queue.empty():
           continue
 
-        with self.lock:
-          self.state = ScheduledObserver.STOPPED
+        self.state.value = ScheduledObserver.STOPPED
 
         self.observer.onError(self.exception)
         self.dispose()
@@ -352,32 +331,32 @@ class ScheduledObserver(ObserverBase):
         if not self.queue.empty():
           continue
 
-        with self.lock:
-          self.state = ScheduledObserver.STOPPED
+        self.state.value = ScheduledObserver.STOPPED
 
         self.observer.onCompleted()
         self.dispose()
 
         return
 
-      old = self._casState(ScheduledObserver.STOPPED, ScheduledObserver.RUNNING)
+      old = self.state.compareExchange(
+        ScheduledObserver.STOPPED,
+        ScheduledObserver.RUNNING
+      )
 
       if old == ScheduledObserver.RUNNING or old == ScheduledObserver.FAULTED:
         return
 
       # assert(old == ScheduledObserver.PENDING)
 
-      self.state = ScheduledObserver.RUNNING
+      self.state.value = ScheduledObserver.RUNNING
 
     # we found an item, so next != None
-    with self.lock:
-      self.state = ScheduledObserver.RUNNING
+    self.state.value = ScheduledObserver.RUNNING
 
     try:
       self.observer.onNext(next)
     except Exception as e:
-      with self.lock:
-        self.state = ScheduledObserver.FAULTED
+      self.state.value = ScheduledObserver.FAULTED
 
       while self.queue.get_nowait() != None:
         pass
@@ -404,8 +383,7 @@ class ScheduledObserver(ObserverBase):
 class ObserveOnObserver(ScheduledObserver):
   def __init__(self, scheduler, observer, cancel):
     super(ObserveOnObserver, self).__init__(scheduler, observer)
-    self.cancel = cancel
-    self.cancelLock = RLock()
+    self.cancel = Atomic(cancel, self.lock)
 
   def onNextCore(self, value):
     super(ObserveOnObserver, self).onNextCore(value)
@@ -422,29 +400,26 @@ class ObserveOnObserver(ScheduledObserver):
   def dispose(self):
     super(ObserveOnObserver, self).dispose()
 
-    with self.cancelLock:
-      old = self.cancel
+    old = self.cancel.exchange(None)
 
-      self.cancel = None
-
-      if old != None:
-        old.dispose()
+    if old != None:
+      old.dispose()
 
 
 class SynchronizedObserver(ObserverBase):
   def __init__(self, observer, lock):
     super(SynchronizedObserver, self).__init__()
     self.observer = observer
-    self.lock = lock
+    self.outerLock = lock
 
   def onNextCore(self, value):
-    with self.lock:
+    with self.outerLock:
       self.observer.onNext(value)
 
   def onErrorCore(self, exception):
-    with self.lock:
+    with self.outerLock:
       self.observer.onError(exception)
 
   def onCompletedCore(self):
-    with self.lock:
+    with self.outerLock:
       self.observer.onCompleted()
