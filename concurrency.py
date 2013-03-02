@@ -5,8 +5,8 @@ from collections import deque
 from threading import RLock, Timer
 
 class Atomic:
-  def __init__(self, value=None):
-    self.lock = RLock()
+  def __init__(self, value=None, lock=RLock()):
+    self.lock = lock
     self._value = value
 
   def value():
