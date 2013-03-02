@@ -1,17 +1,10 @@
-from .internal import noop
+from .concurrency import Atomic
 
 class Disposable:
   """Represents a disposable object"""
-  def __init__(self, action = None):
-    self.action = action
-    self.isDisposed = False
 
   def dispose(self):
-    if self.isDisposed:
-      return
-
-    self.action()
-    self.isDisposed = True
+    pass
 
   @staticmethod
   def create(action):
@@ -19,126 +12,39 @@ class Disposable:
 
   @staticmethod
   def empty():
-    return Disposable(noop)
+    return disposableEmpty
+
+disposableEmpty = Disposable()
 
 
-class SingleAssignmentDisposable(Disposable):
-  """Represents a disposable resource which only allows
-  a single assignment of its underlying disposable resource.
-  If an underlying disposable resource has already been set,
-  future attempts to set the underlying disposable resource
-  will throw an Error."""
-
+class Cancelable(Disposable):
   def __init__(self):
-    super(SingleAssignmentDisposable, self).__init__()
-
-    self.isDisposed = False
-    self.current = None
-
-  def disposable():
-    def fget(self):
-      return self.current
-    def fset(self, value):
-      if self.current != None: raise Exception("Disposable has already been assigned")
-      if not self.isDisposed: self.current = value
-      if self.isDisposed and value != None: value.dispose()
-    return locals()
-
-  disposable = property(**disposable())
+    super(Cancelable, self).__init__()
+    self._isDisposed = Atomic(False)
 
   def dispose(self):
-    if self.isDisposed: return
+    raise NotImplementedError()
 
-    self.isDisposed = True
+  @property
+  def isDisposed(self):
+    """The isDisposed property."""
+    return self._isDisposed.value
 
-    if self.current != None:
-      self.current.dispose()
+  @property
+  def lock(self):
+    return self._isDisposed.lock
 
-    self.current = None
-
-
-class RefCountDisposable(Disposable):
-  """Represents a disposable resource that only disposes
-  its underlying disposable resource when all
-  <see cref="GetDisposable">dependent disposable objects
-  </see> have been disposed."""
-
-  class InnerDisposable(Disposable):
-    def __init__(self, disposable):
-      self.disposable = disposable
-      self.disposable.count += 1
-      self.isInnerDisposed = False
-
-    def dispose(self):
-      if self.disposable.isInnerDisposed or self.isInnerDisposed:
-        return
-
-      self.isInnerDisposed = True
-      self.disposable.count -= 1
-
-      if self.disposable.count == 0 and self.disposable.isPrimaryDisposed:
-        self.disposable.isDisposed = True
-        self.disposable.underlyingDisposable.dispose()
-
-
-  def __init__(self, disposable):
-    super(RefCountDisposable, self).__init__()
-    self.underlyingDisposable = disposable
-    self.isDisposed = False
-    self.isPrimaryDisposed = False
-    self.count = 0
+class AnonymouseDisposable(Cancelable):
+  def __init__(self, action):
+    super(AnonymouseDisposable, self).__init__()
+    self.action = action
 
   def dispose(self):
-    if self.isDisposed or self.isPrimaryDisposed:
-      return
-
-    self.isPrimaryDisposed = True
-
-    if self.count == 0:
-      self.isDisposed = True
-      self.underlyingDisposable.dispose()
-
-  def getDisposable(self):
-    if self.isDisposed:
-      return Disposable.empty
-    else:
-      return self.InnerDisposable(self)
+    if not self._isDisposed.exchange(True):
+      self.action()
 
 
-class SerialDisposable(Disposable):
-  """Represents a disposable resource whose underlying
-  disposable resource can be replaced by
-  another disposable resource, causing automatic
-  disposal of the previous underlying disposable resource."""
-
-  def __init__(self):
-    super(SerialDisposable, self).__init__()
-    self.isDisposed = False
-    self.current = None
-
-  def disposable():
-    doc = "The disposable property."
-    def fget(self):
-      return self.current
-    def fset(self, value):
-      if not self.isDisposed:
-        old = self.current
-        self.current = value
-
-        if old != None:
-          old.dispose()
-
-      if self.isDisposed and value != None:
-        value.dispose()
-    return locals()
-  disposable = property(**disposable())
-
-  def dispose(self):
-    self.disposable = None
-    self.isDisposed = True
-
-
-class CompositeDisposable(Disposable):
+class CompositeDisposable(Cancelable):
   """Represents a group of disposable resources that
   are disposed together"""
 
@@ -150,63 +56,219 @@ class CompositeDisposable(Disposable):
     else:
       self.disposables = [first] + list(rest)
 
-    self.isDisposed = False
     self.length = len(self.disposables)
 
   def add(self, item):
-    if self.isDisposed:
+    shouldDispose = False
+
+    with self.lock:
+      shouldDispose = self.isDisposed
+
+      if not shouldDispose:
+        self.disposables.append(item)
+        self.length += 1
+
+    if shouldDispose:
       item.dispose()
-    else:
-      self.disposables.append(item)
-      self.length += 1
+
+  def contains(self, item):
+    with self.lock:
+      return self.disposables.index(item) >= 0
 
   def remove(self, item):
-    if self.isDisposed:
-      return False
+    shouldDispose = False
 
-    index = self.disposables.index(item)
+    with self.lock:
+      if self.isDisposed:
+        return False
 
-    if index < 0:
-      return False
+      index = self.disposables.index(item)
 
-    self.disposables.remove(item)
-    self.length -= 1
+      if index < 0:
+        return False
 
-    item.dispose()
-    return True
+      shouldDispose = True
 
-  def dispose(self):
-    if self.isDisposed:
-      return
+      self.disposables.remove(item)
+      self.length -= 1
 
-    self.isDisposed = True
+    if shouldDispose:
+      item.dispose()
 
-    disposables = self.disposables
+    return shouldDispose
 
-    self.disposables = []
-    self.length = 0
+  def clear(self):
+    disposables = []
+
+    with self.lock:
+      disposables = self.disposables
+      self.disposables = []
+      self.length = 0
 
     for disposable in disposables:
       disposable.dispose()
 
-  def contains(self, item):
-    return self.disposables.index(item) >= 0
+  def dispose(self):
+    if not self._isDisposed.exchange(True):
+      self.clear()
 
 
-class SchedulerDisposable(Disposable):
+class RefCountDisposable(Cancelable):
+  """Represents a disposable resource that only disposes
+  its underlying disposable resource when all
+  dependent disposable objects have been disposed."""
+
+  class InnerDisposable(Disposable):
+    def __init__(self, parent):
+      self.parent = Atomic(parent)
+
+    def dispose(self):
+      parent = self.parent.exchange(None)
+
+      if parent != None:
+        parent.release()
+
+
+  def __init__(self, disposable):
+    super(RefCountDisposable, self).__init__()
+    self.disposable = disposable
+    self.isPrimaryDisposed = False
+    self.count = 0
+
+  def dispose(self):
+    disposable = None
+
+    with self.lock:
+      if self.isDisposed or self.isPrimaryDisposed:
+        return
+
+      self.isPrimaryDisposed = True
+
+      if self.count == 0:
+        disposable = self.disposable
+        self._isDisposed.value = True
+
+    if disposable != None:
+      disposable.dispose()
+
+  def getDisposable(self):
+    with self.lock:
+      if self.isDisposed:
+        return Disposable.empty
+      else:
+        return self.InnerDisposable(self)
+
+  def release(self):
+    disposable = None
+
+    with self.lock:
+      if self.isDisposed:
+        return
+
+      self.count -= 1
+
+      if self.isPrimaryDisposed and self.count == 0:
+        disposable = self.disposable
+        self._isDisposed.value = True
+
+    if disposable != None:
+      disposable.dispose()
+
+
+class SchedulerDisposable(Cancelable):
+  """Represents a disposable resource whose disposal invocation
+  will be scheduled on the specified Scheduler."""
+
   def __init__(self, scheduler, disposable):
     super(SchedulerDisposable, self).__init__()
     self.scheduler = scheduler
     self.disposable = disposable
-    self.isDisposed = False
 
   def dispose(self):
     def fun():
-      if not self.isDisposed:
-        self.isDisposed = True
+      if not self._isDisposed.exchange(True):
         self.disposable.dispose()
 
     self.scheduler.schedule(fun)
+
+
+class SerialDisposable(Cancelable):
+  """Represents a disposable resource whose underlying
+  disposable resource can be replaced by
+  another disposable resource, causing automatic
+  disposal of the previous underlying disposable resource.
+  Also known as MultipleAssignmentDisposable."""
+
+  def __init__(self):
+    super(SerialDisposable, self).__init__()
+    self.current = None
+
+  def disposable():
+    doc = "The disposable property."
+    def fget(self):
+      with self.lock:
+        if self.isDisposed:
+          return Disposable.empty()
+        else:
+          return self.current
+    def fset(self, value):
+      shouldDispose = False
+
+      with self.lock:
+        shouldDispose = self.isDisposed
+
+        if not shouldDispose:
+          self.current = value
+
+      if shouldDispose:
+        value.dispose()
+    return locals()
+  disposable = property(**disposable())
+
+  def dispose(self):
+    if not self._isDisposed.exchange(True):
+      old = self.current
+
+      self.current = None
+
+      if old != None:
+        old.dispose()
+
+
+class SingleAssignmentDisposable(Cancelable):
+  """Represents a disposable resource which only allows
+  a single assignment of its underlying disposable resource.
+  If an underlying disposable resource has already been set,
+  future attempts to set the underlying disposable resource
+  will throw an Error."""
+
+  def __init__(self):
+    super(SingleAssignmentDisposable, self).__init__()
+    self.current = Atomic(None)
+
+  def disposable():
+    def fget(self):
+      with self.lock:
+        if self.isDisposed:
+          return Disposable.empty()
+        else:
+          return self.current
+    def fset(self, value):
+      old = self.current.exchange(value)
+
+      if old != None: raise Exception("Disposable has already been assigned")
+
+      if self.isDisposed and value != None: value.dispose()
+    return locals()
+
+  disposable = property(**disposable())
+
+  def dispose(self):
+    if not self._isDisposed.exchange(True):
+      if self.current != None:
+        self.current.dispose()
+
+      self.current = None
 
 
 
