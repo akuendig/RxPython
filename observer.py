@@ -1,7 +1,7 @@
 from disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
 from notification import Notification
 from concurrency import Atomic
-from internal import noop, defaultError
+from internal import noop, defaultError, raiseIsDisposed
 from threading import RLock, Semaphore
 from queue import Queue
 
@@ -133,10 +133,13 @@ class AsyncLockObserver(ObserverBase):
 
 
 class AutoDetachObserver(ObserverBase):
-  def __init__(self, observer):
+  def __init__(self, observer, disposable = None):
     super(AutoDetachObserver, self).__init__()
     self.observer = observer
     self.m = SingleAssignmentDisposable()
+
+    if disposable != None:
+      self.m.disposable = disposable
 
   def onNextCore(self, value):
     noError = False
@@ -446,3 +449,6 @@ Observer.noop = noopObserver
 doneObserver = Observer.create(noop, noop, noop)
 doneObserver.exception = None
 Observer.done = doneObserver
+
+disposedObserver = Observer.create(raiseIsDisposed, raiseIsDisposed, raiseIsDisposed)
+Observer.disposed = disposedObserver
