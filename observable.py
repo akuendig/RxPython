@@ -5,8 +5,24 @@ from disposable import Disposable
 class Observable(object):
   """Provides all extension methods to Observable"""
 
+  @staticmethod
+  def create(subscribe):
+    return AnonymousObservable(subscribe)
+
+  def subscribe(self, observerOrOnNext=None, onError=None, onComplete=None):
+    observer = observerOrOnNext
+
+    if observerOrOnNext == None or hasattr(observerOrOnNext, '__call__'):
+      observer = Observer.create(observerOrOnNext, onError, onComplete)
+
+    return self.subscribeCore(observer)
+
+  def subscribeCore(self, observer):
+    raise NotImplementedError()
+
 
 class ObservableBase(Observable):
+
   def subscribe(self, observerOrOnNext=None, onError=None, onComplete=None):
     observer = observerOrOnNext
 
@@ -34,13 +50,6 @@ class ObservableBase(Observable):
         raise e
 
     return Disposable.empty()
-
-  def subscribeCore(self, observer):
-    raise NotImplementedError()
-
-  @classmethod
-  def create(cls, subscribe):
-    return ObservableBase(subscribe)
 
 
 class AnonymousObservable(ObservableBase):

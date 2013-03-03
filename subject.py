@@ -1,73 +1,113 @@
 import sys
-from .observable import Observable
-from .observer import Observer, ScheduledObserver
-from .disposable import Disposable
-from .scheduler import currentThreadScheduler
-from .internal import errorIfDisposed, Struct
+from observable import Observable
+from observer import Observer, ScheduledObserver
+from disposable import Disposable
+from scheduler import currentThreadScheduler
+from concurrency import Atomic
+from internal import errorIfDisposed, Struct
 
 class Subject(Observable, Observer):
-  def _subscribe(self, observer):
-    errorIfDisposed(self)
-
-    if not self.isStopped:
-      self.observers.append(observer)
-      return Disposable.create(lambda: self.observers.remove(observer))
-
-    if self.exception != None:
-      observer.onError(self.exception)
-      return Disposable.empty()
-
   def __init__(self):
-    super(Subject, self).__init__(self._subscribe)
-    self.isDisposable = False
-    self.isStopped = False
+    super(Subject, self).__init__()
+    self.isDisposed = False
     self.observers = []
 
   def onCompleted(self):
-    errorIfDisposed(self)
+    os = []
 
-    if not self.isStopped:
-      self.isStopped = True
+    with self.lock:
+      errorIfDisposed(self)
 
-      for observer in list(self.observers):
-        observer.onCompleted()
+      if not self.isStopped:
+        os = list(self.observers)
 
-      self.observers = []
+        self.isStopped = True
+        self.observers = []
+
+    for observer in os:
+      observer.onCompleted()
 
   def onError(self, exception):
-    errorIfDisposed(self)
+    os = []
 
-    if not self.isStopped:
-      self.isStopped = True
-      self.exception = exception
+    with self.lock:
+      errorIfDisposed(self)
 
-      for observer in list(self.observers):
-        observer.onError(exception)
+      if not self.isStopped:
+        os = list(self.observers)
 
-      self.observers = []
+        self.isStopped = True
+        self.exception = exception
+        self.observers = []
+
+    for observer in os:
+      observer.onError(exception)
 
   def onNext(self, value):
-    errorIfDisposed(self)
+    os = []
 
-    if not self.isStopped:
-      for observer in list(self.observers):
-        observer.onNext(value)
+    with self.lock:
+      errorIfDisposed(self)
+
+      os = list(self.observers)
+
+    for observer in os:
+      observer.onNext(value)
+
+  class Subscription(object):
+    def __init__(self, subject, observer):
+      self.subject = subject
+      self.observer = Atomic(observer)
+
+    def dispose(self):
+      old = self.observer.exchange(None)
+
+      if old != None:
+        self.subject.unsubscribe(old)
+        self.subject = None
+
+  def subscribeCore(self, observer):
+    with self.lock:
+      errorIfDisposed(self)
+
+      if not self.isStopped:
+        self.observers.append(observer)
+        return self.Subscription(self, observer)
+      elif self.exception != None:
+        observer.onError(self.exception)
+        return Disposable.empty()
+      else:
+        observer.onCompleted()
+        return Disposable.empty()
+
+  def unsubscribe(self, observer):
+    with self.lock:
+      self.observers.remove(observer)
 
   def dispose(self):
-    self.isDisposed = True
-    self.observers = []
+    with self.lock:
+      self.isDisposed = True
+      self.observers = []
 
   @staticmethod
   def create(observer, observable):
     return AnonymousSubject(observer, observable)
 
+  @staticmethod
+  def synchonize(subject, scheduler=None):
+    if scheduler == None:
+      return AnonymousSubject(Observer.synchronize(subject), subject)
+    else:
+      return AnonymousSubject(Observer.synchronize(subject), subject.observeOn(scheduler))
 
-class AnonymousSubject(Observable):
-  def _subscribe(self, observer):
-    return self.observable.subscript(observer)
+
+class AnonymousSubject(Observable, Observer):
+  """Represents a proxy subject. All Observer calls go to the observer
+  passed as parameter and all subscribe calls go to the observable passed
+  as parameter"""
 
   def __init__(self, observer, observable):
-    super(AnonymousSubject, self).__init__(self._subscribe)
+    super(AnonymousSubject, self).__init__()
     self.observer = observer
     self.observable = observable
 
@@ -77,30 +117,16 @@ class AnonymousSubject(Observable):
   def onError(self, exception):
     self.observer.onError(exception)
 
-  def onNect(self, value):
+  def onNext(self, value):
     self.observer.onNext(value)
+
+  def subscribeCore(self, observer):
+    return self.observable.subscribe(observer)
 
 
 class AsyncSubject(Observable, Observer):
-  def _subscribe(self, observer):
-    errorIfDisposed(self)
-
-    if not self.isStopped:
-      self.observers.append(observer)
-      return Disposable.create(lambda: self.observers.remove(observer))
-
-    if self.exception != None:
-      observer.onError(self.exception)
-    elif self.hasValue:
-      observer.onNext(self.value)
-      observer.onCompleted()
-    else:
-      observer.onCompleted()
-
-    return Disposable.empty()
-
   def __init__(self):
-    super(AsyncSubject, self).__init__(self._subscribe)
+    super(AsyncSubject, self).__init__()
     self.isDisposed = False
     self.isStopped = False
     self.value = None
@@ -108,72 +134,100 @@ class AsyncSubject(Observable, Observer):
     self.observers = []
     self.exception = None
 
+  @property
+  def hasObservers(self):
+    os = self.observers
+    return os != None and len(os) > 0
+
   def onCompleted(self):
-    errorIfDisposed(self)
+    os = []
+    v = None
+    hv = False
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.isStopped = True
+      if not self.isStopped:
+        os = list(self.observers)
 
-    if self.hasValue:
-      for observer in list(self.observers):
-        observer.onNext(self.value)
+        self.isStopped = True
+        self.observers = []
+        v = self.value
+        hv = self.hasValue
+
+    if hv:
+      for observer in os:
+        observer.onNext(v)
         observer.onCompleted()
     else:
-      for observer in list(self.observers):
+      for observer in os:
         observer.onCompleted()
 
-    self.observers = []
-
   def onError(self, exception):
-    errorIfDisposed(self)
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.isStopped = True
-    self.exception = exception
+      if not self.isStopped:
+        os = list(self.observers)
 
-    for observer in list(self.observers):
+        self.isStopped = True
+        self.observers = []
+        self.exception = exception
+
+    for observer in os:
       observer.onError(exception)
 
-    self.observers = []
-
   def onNext(self, value):
-    errorIfDisposed(self)
+    with self.lock:
+      errorIfDisposed(self)
 
-    if self.isStopped:
-      return
+      if not self.isStopped:
+        self.value = value
+        self.hasValue = True
 
-    for observer in list(self.observers):
-      observer.onNext(value)
+  def subscribeCore(self, observer):
+    ex = None
+    v = None
+    hv = False
 
-  def dispose(self):
-    self.isDisposed = True
-    self.observers = []
-    self.exception = None
-    self.value = None
+    with self.lock:
+      errorIfDisposed(self)
 
+      if not self.isStopped:
+        self.observers.append(observer)
+        return Subject.Subscription(self, observer)
 
-class BehaviorSubject(Observable, Observer):
-  def _subscribe(self, observer):
-    errorIfDisposed(self)
+      ex = self.exception
+      hv = self.hasValue
+      v = self.value
 
-    if not self.isStopped:
-      self.observers.append(observer)
-      observer.onNext(self.value)
-      return Disposable.create(lambda: self.observables.remove(observer))
-
-    if self.exception != None:
-      observer.onError(self.exception)
+    if ex != None:
+      observer.onError(ex)
+    elif hv:
+      observer.onNext(v)
+      observer.onCompleted()
     else:
       observer.onCompleted()
 
     return Disposable.empty()
 
+  def unsubscribe(self, observer):
+    with self.lock:
+      self.observers.remove(observer)
+
+  def dispose(self):
+    with self.lock:
+      self.isDisposed = True
+      self.observers = []
+      self.exception = None
+      self.value = None
+
+
+class BehaviorSubject(Observable, Observer):
   def __init__(self, value):
-    super(BehaviorSubject, self).__init__(self._subscribe)
+    super(BehaviorSubject, self).__init__()
 
     self.value = value
     self.observers = []
@@ -181,91 +235,91 @@ class BehaviorSubject(Observable, Observer):
     self.isStopped = False
     self.exception = None
 
+  @property
+  def hasObservers(self):
+    os = self.observers
+    return os != None and len(os) > 0
+
   def onCompleted(self):
-    errorIfDisposed(self)
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.isStopped = True
+      if not self.isStopped:
+        os = list(self.observers)
 
-    for observer in list(self.observers):
+        self.isStopped = True
+        self.observers = []
+
+    for observer in os:
       observer.onCompleted()
 
-    self.observers = []
-
   def onError(self, exception):
-    errorIfDisposed(self)
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.isStopped = True
-    self.exception = exception
+      if not self.isStopped:
+        os = list(self.observers)
 
-    for observer in list(self.observers):
+        self.isStopped = True
+        self.observers = []
+        self.exception = exception
+
+    for observer in os:
       observer.onError(exception)
 
-    self.observers = []
-
   def onNext(self, value):
-    errorIfDisposed(self)
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.value = value
+      if not self.isStopped:
+        os = list(self.observers)
 
-    for observer in list(self.observers):
+        self.value = value
+
+    for observer in os:
       observer.onNext(value)
 
+  def subscribeCore(self, observer):
+    ex = None
+
+    with self.lock:
+      errorIfDisposed(self)
+
+      if not self.isStopped:
+        self.observers.append(observer)
+        observer.onNext(self.value)
+        return Subject.Subscription(self, observer)
+
+      ex = self.exception
+
+    if ex != None:
+      observer.onError(ex)
+    else:
+      observer.onCompleted()
+
+    return Disposable.empty()
+
+  def unsubscribe(self, observer):
+    with self.lock:
+      self.observers.remove(observer)
+
   def dispose(self):
-    self.isDisposed = True
-    self.observers = []
-    self.value = None
-    self.exception = None
+    with self.lock:
+      self.isDisposed = True
+      self.observers = []
+      self.value = None
+      self.exception = None
 
 
 class ReplaySubject(Observable, Observer):
-
-  class RemovableDisposable(Disposable):
-    def __init__(self, subject, observer):
-      super(self.__class__, self).__init__()
-      self.subject = subject
-      self.observer = observer
-
-    def dispose(self):
-      self.observer.dispose()
-
-      if not self.subject.isDisposed:
-        self.subject.observers.remove(self.observer)
-
-  def _subscribe(self, observer):
-    so = ScheduledObserver(self.scheduler, observer)
-    subscription = self.__class__(self, so)
-
-    errorIfDisposed(self)
-
-    self._trim(self.scheduler.now())
-    self.observers.append(so)
-
-    n = len(self.q)
-
-    for node in self.q:
-      so.onNext(node.value)
-
-    if self.hasError:
-      n += 1
-      so.onError(self.exception)
-    elif self.isStopped:
-      n += 1
-      so.onCompleted()
-
-    so.ensureActive(n)
-
-    return subscription
-
   def __init__(self, bufferSize = sys.maxsize, window = sys.maxsize, scheduler = currentThreadScheduler):
+    super(ReplaySubject, self).__init__()
     self.bufferSize = bufferSize
     self.window = window
     self.scheduler = scheduler
@@ -275,66 +329,124 @@ class ReplaySubject(Observable, Observer):
     self.isDisposed = False
     self.hasError = False
     self.exception = None
-    super(ReplaySubject, self).__init__(self._subscribe)
+
+  @property
+  def hasObservers(self):
+    os = self.observers
+    return os != None and len(os) > 0
 
   def _trim(self, now):
     self.q = self.q[-self.bufferSize:]
     self.q = [node for node in self.q if self.window >= (now - node.interval)]
 
-  def onNext(self, value):
-    errorIfDisposed(self)
+  def onCompleted(self):
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    now = self.scheduler.now()
+      if not self.isStopped:
+        os = list(self.observers)
+        now = self.scheduler.now()
 
-    self.q.append(Struct(interval = now, value = value))
-    self._trim(now)
+        self.isStopped = True
+        self.observers = []
 
-    for observer in list(self.observers):
-      observer.onNext(value)
+        self._trim(now)
+
+        for observer in os:
+          observer.onCompleted()
+
+    for observer in os:
       observer.ensureActive()
 
   def onError(self, exception):
-    errorIfDisposed(self)
+    os = []
 
-    if self.isStopped:
-      return
+    with self.lock:
+      errorIfDisposed(self)
 
-    self.isStopped = True
-    self.exception = exception
-    self.hasError = True
+      if not self.isStopped:
+        os = list(self.observers)
+        now = self.scheduler.now()
 
-    now = self.scheduler.now()
+        self.isStopped = True
+        self.observers = []
+        self.exception = exception
 
-    self._trim(now)
+        self._trim(now)
 
-    for observer in list(self.observers):
-      observer.onError(exception)
+        for observer in os:
+          observer.onError(exception)
+
+    for observer in os:
       observer.ensureActive()
 
-    self.observers = []
+  def onNext(self, value):
+    os = []
 
-  def onCompleted(self):
-    errorIfDisposed(self)
+    with self.lock:
+      errorIfDisposed(self)
 
-    if self.isStopped:
-      return
+      if not self.isStopped:
+        os = list(self.observers)
+        now = self.scheduler.now()
 
-    self.isStopped = True
+        self.q.append(Struct(interval = now, value = value))
 
-    now = self.scheduler.now()
+        for observer in os:
+          observer.onNext(value)
 
-    self._trim(now)
-
-    for observer in list(self.observers):
-      observer.onCompleted()
+    for observer in os:
       observer.ensureActive()
 
-    self.observers = []
+  class Subscription(object):
+    def __init__(self, subject, observer):
+      self.subject = subject
+      self.observer = Atomic(observer)
+
+    def dispose(self):
+      old = self.observer.exchange(None)
+
+      if old != None:
+        old.dispose()
+        self.subject.unsubscribe(old)
+        self.subject = None
+
+  def subscribeCore(self, observer):
+    so = ScheduledObserver(self.scheduler, observer)
+    n = 0
+    subscription = self.Subscription(self, so)
+
+    with self.lock:
+      errorIfDisposed(self)
+
+      self._trim(self.scheduler.now())
+      self.observers.append(so)
+
+      n = len(self.queue)
+
+      for item in self.queue:
+        so.onNext(item.value)
+
+      if self.exception != None:
+        n += 1
+        so.onError(self.exception)
+      elif self.isStopped:
+        n += 1
+        so.onCompleted()
+
+    so.ensureActive(n)
+
+    return subscription
+
+  def unsubscribe(self, observer):
+    with self.lock:
+      if not self.isDisposed:
+        self.observers.remove(observer)
 
   def dispose(self):
-    self.isDisposed = True
-    self.observers = []
+    with self.lock:
+      self.isDisposed = True
+      self.observers = []
 

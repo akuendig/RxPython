@@ -2,7 +2,7 @@ from disposable import Disposable, SingleAssignmentDisposable, SerialDisposable,
 from notification import Notification
 from concurrency import Atomic
 from internal import noop, defaultError
-from threading import Semaphore
+from threading import RLock, Semaphore
 from queue import Queue
 
 class Observer(object):
@@ -12,6 +12,13 @@ class Observer(object):
   @staticmethod
   def create(onNext=noop, onError=defaultError, onCompleted=noop):
     return AnonymousObserver(onNext, onError, onCompleted)
+
+  @staticmethod
+  def synchronize(observer, lock = None):
+    if lock == None:
+      lock = RLock()
+
+    return SynchronizedObserver(observer, lock)
 
   @staticmethod
   def fromNotifier(handler):
@@ -29,6 +36,9 @@ class Observer(object):
 
   def checked(self):
     return CheckedObserver(self)
+
+  def notifyOn(self, scheduler):
+    return ScheduledObserver(scheduler, self)
 
   def onNext(self, value):
     raise NotImplementedError()
