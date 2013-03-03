@@ -43,6 +43,17 @@ class Scheduler:
 
     return scheduled.group
 
+  @staticmethod
+  def now():
+    return defaultNow()
+
+  @staticmethod
+  def normalize(timeSpan):
+    if timeSpan < 0:
+      return 0
+    else:
+      return timeSpan
+
   def catchException(self, handler):
     return CatchScheduler(self, handler)
 
@@ -122,17 +133,6 @@ class Scheduler:
       dueTime,
       lambda s, p: Scheduler.invokeRecDate(s, p, 'scheduleWithAbsoluteAndState')
     )
-
-  @staticmethod
-  def now():
-    return defaultNow()
-
-  @staticmethod
-  def normalize(timeSpan):
-    if timeSpan < 0:
-      return 0
-    else:
-      return timeSpan
 
 
 class CatchWrapper:

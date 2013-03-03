@@ -1,6 +1,6 @@
 from observer import Observer, AutoDetachObserver
-from scheduler import currentThreadScheduler
-from disposable import Disposable
+from scheduler import Scheduler
+from disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
 
 class Observable(object):
   """Provides all extension methods to Observable"""
@@ -20,6 +20,21 @@ class Observable(object):
   def subscribeCore(self, observer):
     raise NotImplementedError()
 
+  def subscribeSafe(self, observer):
+    if isinstance(self, ObservableBase):
+      return self.subscribeCore(observer)
+    elif isinstance(self, Producer):
+      return self.subscribeRaw(observer, False)
+
+    d = Disposable.empty()
+
+    try:
+      d = self.subscribeCore(observer)
+    except Exception as e:
+      observer.onError(e)
+
+    return d
+
 
 class ObservableBase(Observable):
 
@@ -31,8 +46,8 @@ class ObservableBase(Observable):
 
     autoDetachObserver = AutoDetachObserver(observer)
 
-    if currentThreadScheduler.isScheduleRequired():
-      currentThreadScheduler.scheduleWithState(autoDetachObserver, self.scheduledSubscribe)
+    if Scheduler.currentThread.isScheduleRequired():
+      Scheduler.currentThread.scheduleWithState(autoDetachObserver, self.scheduledSubscribe)
     else:
       try:
         autoDetachObserver.disposable(self.subscribeCore(autoDetachObserver))
@@ -65,3 +80,36 @@ class AnonymousObservable(ObservableBase):
     else:
       return d
 
+
+class Producer(Observable):
+  """Base class for implementation of query operators, providing
+  performance benefits over the use of Observable.Create"""
+
+  def subscribeCore(self, observer):
+    return self.subscribeRaw(observer, True)
+
+  def subscribeRaw(self, observer, enableSafequard):
+    sink = SingleAssignmentDisposable()
+    subscription = SingleAssignmentDisposable()
+
+    d = CompositeDisposable(sink, subscription)
+
+    if enableSafequard:
+      observer = AutoDetachObserver(observer, d)
+
+    def assignSink(s):
+      sink.disposable = s
+
+    def scheduled(_, me):
+      subscription.disposable = me.run(observer, subscription, assignSink)
+      return Disposable.empty()
+
+    if Scheduler.currentThread.isScheduleRequired():
+      Scheduler.currentThread.schedule(self, scheduled)
+    else:
+      scheduled(None, self)
+
+    return d
+
+  def run(self, observer, cancel, setSink):
+    raise NotImplementedError()
