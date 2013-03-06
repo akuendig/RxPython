@@ -36,6 +36,7 @@ class Cancelable(Disposable):
   def lock(self):
     return self._isDisposed.lock
 
+
 class AnonymouseDisposable(Cancelable):
   def __init__(self, action):
     super(AnonymouseDisposable, self).__init__()
@@ -44,6 +45,14 @@ class AnonymouseDisposable(Cancelable):
   def dispose(self):
     if not self._isDisposed.exchange(True):
       self.action()
+
+
+class BooleanDisposable(Cancelable):
+  def __init__(self):
+    super(BooleanDisposable, self).__init__()
+
+  def dispose(self):
+    self._isDisposed.exchange(True)
 
 
 class CompositeDisposable(Cancelable):
