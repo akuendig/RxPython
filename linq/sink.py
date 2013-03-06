@@ -1,5 +1,7 @@
 from observer import Observer
 from concurrency import Atomic
+from dispoable import AsyncLock, Disposable, CompositDisposable, SerialDisposable, SingleAssignmentDisposable
+from scheduler import Scheduler
 
 
 class Sink(object):
@@ -36,3 +38,112 @@ class Sink(object):
 
   def getForewarder(self):
     return self.Forewarder(self)
+
+
+class TailRecursiveSink(Sink):
+  def __init__(self, observer, cancel):
+    super(TailRecursiveSink, self).__init__(observer, cancel)
+
+  @staticmethod
+  def unpack(source):
+    while hasattr(source, 'eval'):
+      source = source.eval()
+
+    return source
+
+  def run(self, sources):
+    self.isDisposed = False
+    self.subscription = SerialDisposable()
+    self.gate = AsyncLock()
+    self.stack = []
+    self.length = []
+
+    self.stack.append(iter(sources))
+    self.length.append(len(sources))
+
+    def scheduled(schedule):
+      self.recurse = schedule
+      self.gate.wait(self.moveNext)
+
+    cancel = Scheduler.tailRecursion.schedule(scheduled)
+
+    return CompositDisposable(
+      self.subscription,
+      cancel,
+      Disposable.create(lambda: self.gate.wait(self.dispose))
+    )
+
+  def extract(self, obj):
+    raise NotImplementedError()
+
+  def moveNext(self):
+    hasCurrent = False
+    current = None
+
+    while True:
+      if self.stack.count == 0:
+        break
+
+      if self.isDisposed:
+        return
+
+      e = self.stack[-1]
+      l = self.length[-1]
+
+      try:
+        current = next(e)
+        hasCurrent = True
+      except StopIteration:
+        pass
+      except Exception as e:
+        self.observer.onError(e)
+        self.dispose()
+        return
+
+      if not hasCurrent:
+        self.stack.pop()
+        self.length.pop()
+      else:
+        r = l - 1
+        self.length[-1] = r
+
+        try:
+          current = TailRecursiveSink.unpack(current)
+        except Exception as e:
+          self.observer.onError(e)
+          self.dispose()
+          return
+
+        # Tail recursive case; drop the current frame.
+        if r == 0:
+          self.stack.pop()
+          self.length.pop()
+
+        # Flattening of nested sequences. Prevents stack overflow in observers.
+        nextSeq = self.extract(current)
+
+        if nextSeq != None:
+          self.stack.append(iter(nextSeq))
+          self.length.append(len(nextSeq))
+
+          hasCurrent = False
+
+      if hasCurrent:
+        break
+
+    if not hasCurrent:
+      self.done()
+      return
+
+    d = SingleAssignmentDisposable()
+    self.subscription.disposable = d
+    d.disposable = current.subscribeSafe(self)
+
+  def dispose(self):
+    self.stack.clear()
+    self.length.clear()
+    self.isDisposed = True
+
+  def done(self):
+    self.observer.onCompleted()
+    self.dispose()
