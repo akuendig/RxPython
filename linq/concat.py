@@ -1,4 +1,3 @@
-from disposable import Disposable
 from observable import Producer
 from .sink import ConcatSink
 
