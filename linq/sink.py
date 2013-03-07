@@ -61,11 +61,11 @@ class TailRecursiveSink(Sink):
     self.stack.append(iter(sources))
     self.length.append(len(sources))
 
-    def scheduled(schedule):
-      self.recurse = schedule
+    def scheduled(continuation):
+      self.recurse = continuation
       self.gate.wait(self.moveNext)
 
-    cancel = Scheduler.tailRecursion.schedule(scheduled)
+    cancel = Scheduler.tailRecursion.scheduleRecursive(scheduled)
 
     return CompositDisposable(
       self.subscription,
@@ -73,7 +73,7 @@ class TailRecursiveSink(Sink):
       Disposable.create(lambda: self.gate.wait(self.dispose))
     )
 
-  def extract(self, obj):
+  def extract(self, source):
     raise NotImplementedError()
 
   def moveNext(self):
@@ -147,3 +147,26 @@ class TailRecursiveSink(Sink):
   def done(self):
     self.observer.onCompleted()
     self.dispose()
+
+
+class PushToPullSink(Observer):
+  def __init__(self, subscription):
+    super(PushToPullSink, self).__init__()
+    self.subscription = subscription
+    self.iteratorDone = False
+
+  def tryMoveNext(self):
+    raise NotImplementedError()
+
+  def __next__(self):
+    if not self.iteratorDone:
+      if self.tryMoveNext():
+        return self.current
+      else:
+        self.iteratorDone = True
+        self.subscription.dispose()
+
+    raise StopIteration()
+
+  def dispose(self):
+    self.subscription.dispose()

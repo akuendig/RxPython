@@ -113,3 +113,16 @@ class Producer(Observable):
 
   def run(self, observer, cancel, setSink):
     raise NotImplementedError()
+
+class PushToPullAdapter(object):
+  def __init__(self, source):
+    self.source = source
+
+  def __iter__(self):
+    d = SingleAssignmentDisposable()
+    res = self.run(d)
+    d.disposable = self.source.subscribeSafe(res)
+    return res
+
+  def run(self, subscription):
+    raise NotImplementedError()
