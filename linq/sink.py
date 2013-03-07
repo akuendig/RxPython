@@ -170,3 +170,18 @@ class PushToPullSink(Observer):
 
   def dispose(self):
     self.subscription.dispose()
+
+
+class ConcatSink(TailRecursiveSink):
+  def __init__(self, observer, cancel):
+    super(ConcatSink, self).__init__(observer, cancel)
+
+  def extract(self, source):
+    if hasattr(source, 'getSources'):
+      return source.getSources()
+    else:
+      return None
+
+  def onCompleted(self):
+    self.recurse()
+
