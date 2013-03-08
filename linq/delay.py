@@ -45,7 +45,7 @@ class DelayTime(Producer):
 
       if self.parent.isAbsolute:
         self.ready = False
-        self.cancel.disposable = self.scheduler.scheduleAbsolute(
+        self.cancel.disposable = self.scheduler.scheduleWithAbsolute(
           self.parent.dueTime,
           self.start
         )
@@ -459,3 +459,45 @@ class DelayObservable(Producer):
           self.parent.delays.remove(self.cancelSelf)
           self.parent.checkDone()
 
+
+class DelaySubscription(Producer):
+  def __init__(self, source, dueTime, scheduler, isAbsolute):
+    self.source = source
+    self.dueTime = dueTime
+    self.scheduler = scheduler
+    self.isAbsolute = isAbsolute
+
+  def run(self, observer, cancel, setSink):
+    sink = self.Sink(observer, cancel)
+    setSink(sink)
+
+    if self.isAbsolute:
+      return self.scheduler.scheduleWithAbsoluteAndState(
+        sink,
+        self.dueTime,
+        self.delaySubscribe
+      )
+    else:
+      return self.scheduler.scheduleWithRelativeAndState(
+        sink,
+        self.dueTime,
+        self.delaySubscribe
+      )
+
+  def delaySubscribe(self, scheduler, sink):
+    return self.source.subscribeSafe(sink)
+
+  class Sink(Sink):
+    def __init__(self, observer, cancel):
+      super(DelaySubscription.Sink, self).__init__(observer, cancel)
+
+    def onNext(self, value):
+      self.observer.onNext(value)
+
+    def onError(self, exception):
+      self.observer.onError(exception)
+      self.dispose()
+
+    def onCompleted(self):
+      self.observer.onCompleted()
+      self.dispose()
