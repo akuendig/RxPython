@@ -1,5 +1,6 @@
 from disposable import CompositeDisposable, Disposable, SerialDisposable, SingleAssignmentDisposable
 from observable import Producer
+from observer import Observer
 from internal import Struct
 from scheduler import Scheduler
 from .sink import Sink
@@ -358,3 +359,103 @@ class DelayTime(Producer):
           return
       #end while
     # end Sink
+
+
+class DelayObservable(Producer):
+  def __init__(self, source, subscriptionDelay, delaySelector):
+    self.source = source
+    self.subscriptionDelay = subscriptionDelay
+    self.delaySelector = delaySelector
+
+  def run(self, observer, cancel, setSink):
+    sink = self.Sink(self, observer, cancel)
+    setSink(sink)
+    return sink.run()
+
+  class Sink(Sink):
+    def __init__(self, parent, observer, cancel):
+      super(DelayObservable.Sink, self).__init__(observer, cancel)
+      self.parent = parent
+
+    def run(self):
+      self.delays = CompositeDisposable()
+      self.gate = RLock()
+      self.atEnd = False
+      self.subscription = SerialDisposable()
+
+      if self.parent.subscriptionDelay == None:
+        self.start()
+      else:
+        self.subscription.disposable = self.parent.subscriptionDelay.subscribeSafe(self.Sigma(self))
+
+      return CompositeDisposable(self.subscription, self.delays)
+
+    def start(self):
+      self.subscription.disposable = self.parent.source.subscribeSafe(self)
+
+    def onNext(self, value):
+      try:
+        delay = self.parent.delaySelector(value)
+      except Exception as e:
+        with self.gate:
+          self.observer.onError(e)
+          self.dispose()
+      else:
+        d = SingleAssignmentDisposable()
+        self.delays.add(d)
+        d.disposable = delay.subscribeSafe(self.Delta(self, value, d))
+
+    def onError(self, exception):
+      with self.gate:
+        self.observer.onError(exception)
+        self.dispose()
+
+    def onCompleted(self):
+      with self.gate:
+        self.atEnd = True
+        self.subscription.dispose()
+
+        self.checkDone()
+
+    def checkDone(self):
+      if self.atEnd and self.delays.length == 0:
+        self.observer.onCompleted()
+        self.dispose()
+
+    class Sigma(Observer):
+      def __init__(self, parent):
+        self.parent = parent
+
+      def onNext(self, value):
+        self.parent.start()
+
+      def onError(self, exception):
+        self.parent.observer.onError(exception)
+        self.parent.dispose()
+
+      def onCompleted(self):
+        self.parent.start()
+
+    class Delta(Observer):
+      def __init__(self, parent, value, cancelSelf):
+        self.parent = parent
+        self.value = value
+        self.cancelSelf = cancelSelf
+
+      def onNext(self, delay):
+        with self.parent.gate:
+          self.parent.observer.onNext(self.value)
+          self.parent.delays.remove(self.cancelSelf)
+          self.parent.checkDone()
+
+      def onError(self, exception):
+        with self.parent.gate:
+          self.parent.observer.onError(exception)
+          self.parent.dispose()
+
+      def onCompleted(self):
+        with self.parent.gate:
+          self.parent.observer.onNext(self.value)
+          self.parent.delays.remove(self.cancelSelf)
+          self.parent.checkDone()
+
