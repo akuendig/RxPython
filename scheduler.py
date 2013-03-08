@@ -64,8 +64,12 @@ class Scheduler:
   def scheduleLongRunning(self, action):
     return self.scheduleLongRunningWithState(None, lambda s, cancel: action(cancel))
 
-  def scheduleLongRunningWithState(self, state, action):
-    raise NotImplementedError()
+  ## commented out such that one can test if a scheduler can schedule long running
+  # def scheduleLongRunningWithState(self, state, action):
+  #   raise NotImplementedError()
+  @property
+  def isLongRunning(self):
+    return hasattr(self, "scheduleLongRunningWithState")
 
   # periodic scheduling
   # action takes as parameter: state

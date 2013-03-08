@@ -15,9 +15,14 @@ class DelayTime(Producer):
     self.isAbsolute = isAbsolute
 
   def run(self, observer, cancel, setSink):
-    sink = self.Sink(self, observer, cancel)
-    setSink(sink)
-    return sink.run()
+    if self.scheduler.isLongRunning:
+      sink = self.LongrunningSink(self, observer, cancel)
+      setSink(sink)
+      return sink.run()
+    else:
+      sink = self.Sink(self, observer, cancel)
+      setSink(sink)
+      return sink.run()
 
   def eval(self):
     return self.observableFactory()
