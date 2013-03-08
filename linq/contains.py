@@ -1,5 +1,5 @@
 from observable import Producer
-from .sink import ConcatSink
+from .sink import Sink
 
 
 class Contains(Producer):
@@ -16,7 +16,7 @@ class Contains(Producer):
   def getSources(self):
     return self.sources
 
-  class Sink(ConcatSink):
+  class Sink(Sink):
     def __init__(self, parent, observer, cancel):
       super(Contains.Sink, self).__init__(observer, cancel)
       self.parent = parent

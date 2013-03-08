@@ -1,5 +1,5 @@
 from observable import Producer
-from .sink import ConcatSink
+from .sink import Sink
 
 
 class Count(Producer):
@@ -15,7 +15,7 @@ class Count(Producer):
   def getSources(self):
     return self.sources
 
-  class Sink(ConcatSink):
+  class Sink(Sink):
     def __init__(self, observer, cancel):
       super(Count.Sink, self).__init__(observer, cancel)
       self.count = 0
