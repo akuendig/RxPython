@@ -81,6 +81,23 @@ class AnonymousObservable(ObservableBase):
       return d
 
 
+class GroupedObservable(ObservableBase):
+  def __init__(self, key, subject, refCount=None):
+    super(GroupedObservable, self).__init__()
+    self.key = key
+    self.subject = subject
+    self.refCount = refCount
+
+  def subscribeCore(self, observer):
+    if self.refCount == None:
+      # [OK] Use of unsafe Subscribe: called on a known subject implementation.
+      return self.subject.subscribe(observer)
+    else:
+      # [OK] Use of unsafe Subscribe: called on a known subject implementation.
+      release = self.refCount.getDisposable()
+      subscription = self.subject.subscribe(observer)
+      return CompositeDisposable(release, subscription)
+
 class Producer(Observable):
   """Base class for implementation of query operators, providing
   performance benefits over the use of Observable.Create"""
