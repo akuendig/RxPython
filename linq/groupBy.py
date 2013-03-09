@@ -50,7 +50,7 @@ class GroupBy(Producer):
         else:
           if not key in self.map:
             writer = Subject()
-            self.map[key] = value
+            self.map[key] = writer
             fireNewMapEntry = True
       except Exception as e:
         self.onError(e)
