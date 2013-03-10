@@ -6,7 +6,7 @@ from .sink import Sink
 from threading import RLock
 
 
-class GroupBy(Producer):
+class GroupByUntil(Producer):
   def __init__(self, source, keySelector, elementSelector, durationSelector):
     self.source = source
     self.keySelector = keySelector
@@ -26,7 +26,7 @@ class GroupBy(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(GroupBy.Sink, self).__init__(observer, cancel)
+      super(GroupByUntil.Sink, self).__init__(observer, cancel)
       self.parent = parent
       self.map = {}
       self.null = None
