@@ -1,4 +1,4 @@
-from disposable import CompositDisposable, RefCountDisposable, SingleAssignmentDisposable
+from disposable import CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable
 from observable import Producer
 from observer import Observer
 from subject import Subject
@@ -28,7 +28,7 @@ class GroupJoin(Producer):
 
     def run(self):
       self.gate = RLock()
-      self.group = CompositDisposable()
+      self.group = CompositeDisposable()
       self.refCount = RefCountDisposable(self.group)
 
       leftSubscription = SingleAssignmentDisposable()
