@@ -1,6 +1,7 @@
+from disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
 from observer import Observer, AutoDetachObserver
 from scheduler import Scheduler
-from disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
+from threading import RLock
 
 class Observable(object):
   """Provides all extension methods to Observable"""
@@ -79,6 +80,40 @@ class AnonymousObservable(ObservableBase):
       return Disposable.empty()
     else:
       return d
+
+
+class ConnectableObservable(Observable):
+  """Represents an observable wrapper that can be connected
+  and disconnected from its underlying observable sequence."""
+  def __init__(self, source, subject):
+    self.source = source.asObservable()
+    self.subject = subject
+    self.gate = RLock()
+    self.connection = None
+
+  def connect(self):
+    with self.gate:
+      if self.connection == None:
+        subscription = self.source.subscribeSafe(self.subject)
+        self.connection = self.Connection(self, subscription)
+
+      return self.connection
+
+  def subscribeCore(self, observer):
+    return self.subject.subscribeSafe(observer)
+
+  class Connection(Disposable):
+    def __init__(self, parent, subscription):
+      self.parent = parent
+      self.subscription = subscription
+
+    def dispose(self):
+      with self.parent.gate:
+        if self.subscription != None:
+          self.subscription.dispose()
+          self.subscription = None
+
+          self.parent.connection = None
 
 
 class GroupedObservable(ObservableBase):
