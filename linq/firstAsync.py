@@ -37,7 +37,7 @@ class DistinctUntilChanged(Producer):
 
     def onCompleted(self):
       if self.parent.throwOnEmpty:
-        self.observer.onError(Exception("Invalid operation"))
+        self.observer.onError(Exception("Invalid operation, no elements in observable"))
       else:
         self.observer.onNext(None)
         self.observer.onCompleted()
