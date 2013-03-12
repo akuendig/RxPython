@@ -1,4 +1,4 @@
-from disposable import CompositeDisposable, SingleAssignmentDisposable
+from disposable import CompositeDisposable
 from observable import Producer
 from observer import Observer
 from .sink import Sink
