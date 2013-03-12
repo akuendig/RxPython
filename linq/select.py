@@ -23,12 +23,13 @@ class Select(Producer):
     def __init__(self, parent, observer, cancel):
       super(Select.Sink, self).__init__(observer, cancel)
       self.parent = parent
-      self.index = 0
+      self.index = -1
 
     def onNext(self, value):
       try:
         result = None
         if self.parent.withIndex:
+          self.index += 1
           result = self.parent.selector(value, self.index)
         else:
           result = self.parent.selector(value)
