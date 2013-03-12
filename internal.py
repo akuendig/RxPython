@@ -4,6 +4,7 @@ def noop(*args, **kwargs): pass
 def identity(x): return x
 def defaultNow(): return datetime.now().timestamp() # UNIX time on seconds as float
 def defaultComparer(x, y): return x == y
+def defaultCompareTo(x, y): return 1 if x > y else -1 if x < y else 0
 def defaultSubComparer(x, y): return x - y
 def defaultKeySerializer(x): return str(x)
 def defaultError(error, *args, **kwargs): raise error
