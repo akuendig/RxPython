@@ -2,7 +2,7 @@ from observable import Producer
 from .sink import Sink
 
 
-class SkipCount(Producer):
+class SkipWhile(Producer):
   def __init__(self, source, predicate, withIndex):
     self.source = source
     self.predicate = predicate
@@ -15,7 +15,7 @@ class SkipCount(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(SkipCount.Sink, self).__init__(observer, cancel)
+      super(SkipWhile.Sink, self).__init__(observer, cancel)
       self.parent = parent
       self.running = False
       self.index = -1
