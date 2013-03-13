@@ -63,7 +63,7 @@ class SkipTime(Producer):
 
     def run(self):
       t = self.parent.scheduler.scheduleWithRelative(self.parent.duration, self.tick)
-      d = self.parent.subscribeSafe(self)
+      d = self.parent.source.subscribeSafe(self)
 
       return CompositeDisposable(t, d)
 
