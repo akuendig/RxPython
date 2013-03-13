@@ -73,7 +73,7 @@ class Buffer(Producer):
 
     def onError(self, exception):
       while not self.queue.empty():
-        self.queue.get_nowait().clear()
+        self.queue.get().clear()
 
       self.observer.onError(exception)
       self.dispose()
@@ -103,22 +103,22 @@ class Buffer(Producer):
       return CompositeDisposable(d, s)
 
     def tick(self):
-      with self.lock:
+      with self.gate:
         self.observer.onNext(self.list)
         self.list = []
 
     def onNext(self, value):
-      with self.lock:
+      with self.gate:
         self.list.append(value)
 
     def onError(self, exception):
-      with self.lock:
+      with self.gate:
         self.list.clear()
         self.observer.onError(exception)
         self.dispose()
 
     def onCompleted(self):
-      with self.lock:
+      with self.gate:
         self.observer.onNext(self.list)
         self.observer.onCompleted()
         self.dispose()
@@ -148,7 +148,7 @@ class Buffer(Producer):
 
     def createWindow(self):
       s = []
-      self.queue.put(s)
+      self.q.put(s)
 
     def createTimer(self):
       m = SingleAssignmentDisposable()
@@ -174,16 +174,16 @@ class Buffer(Producer):
       if isShift:
         self.nextShift += self.parent.timeShift
 
-      m.disposable = self.parent.scheduler.schedule(
+      m.disposable = self.parent.scheduler.scheduleWithRelativeAndState(
         Struct(isSpan=isSpan, isShift=isShift),
         ts,
         self.tick
       )
 
     def tick(self, scheduler, state):
-      with self.lock:
+      with self.gate:
         if state.isSpan:
-          s = self.q.get_nowait()
+          s = self.q.get()
           self.observer.onNext(s)
 
         if state.isShift:
@@ -194,20 +194,20 @@ class Buffer(Producer):
       return Disposable.empty()
 
     def onNext(self, value):
-      with self.lock:
+      with self.gate:
         for s in self.q:
           s.append(value)
 
     def onError(self, exception):
-      with self.lock:
+      with self.gate:
         while not self.q.empty():
-          self.q.get_nowait().clear()
+          self.q.get().clear()
 
         self.observer.onError(exception)
         self.dispose()
 
     def onCompleted(self):
-      with self.lock:
+      with self.gate:
         while not self.q.empty():
           s = self.q.get()
           self.observer.onNext(s)
@@ -248,12 +248,13 @@ class Buffer(Producer):
 
       newId = 0
 
-      with self.lock:
+      with self.gate:
         if wId != self.windowId:
           return d
 
         self.n = 0
-        newId = self.windowId + 1
+        self.windowId += 1
+        newId = self.windowId
 
         res = self.list
         self.list = []
@@ -267,13 +268,14 @@ class Buffer(Producer):
       newWindow = False
       newId = 0
 
-      with self.lock:
+      with self.gate:
         self.list.append(value)
         self.n += 1
 
         if self.n == self.parent.count:
           newWindow = True
-          newId = self.windowId + 1
+          self.windowId += 1
+          newId = self.windowId
 
           res = self.list
           self.list = []
@@ -284,13 +286,13 @@ class Buffer(Producer):
         self.createTimer(newId)
 
     def onError(self, exception):
-      with self.lock:
+      with self.gate:
         self.list.clear()
         self.observer.onError(exception)
         self.dispose()
 
     def onCompleted(self):
-      with self.lock:
+      with self.gate:
         self.observer.onNext(self.list)
         self.observer.onCompleted()
         self.dispose()
