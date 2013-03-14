@@ -49,6 +49,7 @@ from .never import Never
 from .next import Next
 from .ofType import OfType
 from .onErrorResumeNext import OnErrorResumeNext
+from .observeOn import ObserveOn
 from .range import Range
 from .refCount import RefCount
 from .repeat import Repeat
@@ -65,6 +66,7 @@ from .skipUntil import SkipUntilObservable, SkipUntilTime
 from .skipWhile import SkipWhile
 from .sum import Sum
 from .switch import Switch
+from .synchonize import Synchronize
 from .take import TakeCount, TakeTime
 from .takeLast import TakeLastCount, TakeLastTime
 from .takeLastBuffer import TakeLastBufferCount, TakeLastBufferTime
@@ -84,9 +86,10 @@ from .whileOp import While
 from .window import Window
 from .zip import Zip
 
-from observable import ConnectableObservable, Observable
+from disposable import SchedulerDisposable, SerialDisposable, SingleAssignmentDisposable
+from observable import AnonymousObservable, ConnectableObservable, Observable
 from observer import AnonymousObserver
-from scheduler import currentThreadScheduler
+from scheduler import Scheduler
 from subject import AsyncSubject, BehaviorSubject, ReplaySubject, Subject
 from internal import defaultComparer, defaultCompareTo, Struct
 
@@ -226,7 +229,7 @@ Observable.publishLast = publishLast
 
 Observable.refCount = lambda self: RefCount(self)
 
-def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, scheduler=currentThreadScheduler):
+def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, scheduler=Scheduler.currentThread):
   if selector == None:
     return self.multicast(ReplaySubject(bufferSize, window, scheduler))
   else:
@@ -289,9 +292,175 @@ def firstOrDefault(self, predicate=None):
     return firstOrDefaultInternal(self, False)
   else:
     return firstOrDefault(Where(self, predicate))
+Observable.firstOrDefault = firstOrDefault
+
+def forEach(self, onNext):
+  event = Event()
+  sink = ForEach.Sink(onNext, lambda: event.set())
+
+  with self.subscribeSafe(sink):
+    event.wait()
+
+  if sink.exception != None:
+    raise sink.exception
+Observable.forEach = forEach
+
+def forEachEnumerate(self, onNext):
+  event = Event()
+  sink = ForEach.EnumeratingSink(onNext, lambda: event.set())
+
+  with self.subscribeSafe(sink):
+    event.wait()
+
+  if sink.exception != None:
+    raise sink.exception
+Observable.forEachEnumerate = forEachEnumerate
+
+def getIterator(self):
+  e = GetIterator()
+  return e.run(self)
+Observable.getIterator = getIterator
+Observable.__iter__ = getIterator
+
+def lastOrDefaultInternal(source, throwIfEmpty):
+  state = Struct(
+    value=None,
+    hasValue=False,
+    ex=None,
+    event=Event()
+  )
+
+  def onNext(value):
+    state.value = value
+    state.hasValue = True
+
+  def onError(exception):
+    state.ex = exception
+    state.event.set()
+
+  def onCompleted():
+    state.event.set()
+
+  with source.subscribe(AnonymousObserver(onNext, onError, onCompleted)):
+    state.event.wait()
+
+  if state.ex != None:
+    raise state.ex
+
+  if throwIfEmpty and not state.hasValue:
+    raise Exception("Invalid operation, no elements in observable")
+
+  return state.value
+
+def last(self, predicate=None):
+  if predicate == None:
+    return lastOrDefaultInternal(self, True)
+  else:
+    return last(Where(self, predicate))
+Observable.last = last
+
+def lastOrDefault(self, predicate=None):
+  if predicate == None:
+    return lastOrDefaultInternal(self, False)
+  else:
+    return lastOrDefault(Where(self, predicate))
+Observable.lastOrDefault = lastOrDefault
+
+Observable.latest = lambda self: Latest(self)
+
+Observable.mostRecent = lambda self: MostRecent(self)
+
+Observable.next = lambda self: Next(self)
 
 
+def singleOrDefaultInternal(source, throwIfEmpty):
+  state = Struct(
+    value=None,
+    hasValue=False,
+    ex=None,
+    event=Event()
+  )
 
+  def onNext(value):
+    if state.hasValue:
+      state.ex = Exception("Invalid operation, more than one element in observable")
+      state.event.set()
+
+    state.value = value
+    state.hasValue = True
+
+  def onError(exception):
+    state.ex = exception
+    state.event.set()
+
+  def onCompleted():
+    state.event.set()
+
+  with source.subscribe(AnonymousObserver(onNext, onError, onCompleted)):
+    state.event.wait()
+
+  if state.ex != None:
+    raise state.ex
+
+  if throwIfEmpty and not state.hasValue:
+    raise Exception("Invalid operation, no elements in observable")
+
+  return state.value
+
+def single(self, predicate=None):
+  if predicate == None:
+    return singleOrDefaultInternal(self, True)
+  else:
+    return single(Where(self, predicate))
+Observable.single = single
+
+def singleOrDefault(self, predicate=None):
+  if predicate == None:
+    return singleOrDefaultInternal(self, False)
+  else:
+    return singleOrDefault(Where(self, predicate))
+Observable.singleOrDefault = singleOrDefault
+
+Observable.wait = last
+
+####################
+#   Concurrency    #
+####################
+
+def subscribeOn(self, scheduler):
+  def subscribe(observer):
+    m = SingleAssignmentDisposable()
+    d = SerialDisposable()
+    d.disposable = m
+
+    m.disposable = scheduler.schedule(lambda: s.disposable = SchedulerDisposable(scheduler, source.subscribeSafe(observer)))
+
+    return d
+
+  return AnonymousObservable(subscribe)
+Observable.subscribeOn = subscribeOn
+
+Observable.observeOn = lambda self, scheduler: ObserveOn(self, scheduler)
+
+def synchronize(self, gate=None):
+  return Synchronize(self, gate)
+Observeable.synchronize = synchronize
+
+####################
+#   Conversion     #
+####################
+
+# From iterable should be done via Observable.Create
+
+# To iterable via __iter__ or getIterator
+
+# To EventSource not possible
+
+# To EventPattern not possible
+
+def toObservable(self, scheduler = Scheduler.iteration):
+  return ToObservable(self, scheduler)
+Observable.toObservable = toObservable
 
 
 
