@@ -2,7 +2,7 @@ from observable import Producer
 from .sink import ConcatSink
 
 
-class Case(Producer):
+class Concat(Producer):
   def __init__(self, sources):
     self.sources = sources
 
@@ -16,7 +16,7 @@ class Case(Producer):
 
   class Sink(ConcatSink):
     def __init__(self, observer, cancel):
-      super(Case.Sink, self).__init__(observer, cancel)
+      super(Concat.Sink, self).__init__(observer, cancel)
 
     def onNext(self, value):
       self.observer.onNext(value)

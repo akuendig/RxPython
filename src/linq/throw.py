@@ -2,7 +2,7 @@ from observable import Producer
 from .sink import Sink
 
 
-class TimeStamp(Producer):
+class Throw(Producer):
   def __init__(self, exception, scheduler):
     self.exception = exception
     self.scheduler = scheduler
@@ -14,7 +14,7 @@ class TimeStamp(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(TimeStamp.Sink, self).__init__(observer, cancel)
+      super(Throw.Sink, self).__init__(observer, cancel)
       self.parent = parent
 
     def run(self):

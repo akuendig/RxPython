@@ -5,7 +5,7 @@ from .sink import Sink
 from collections import deque
 
 
-class TakeLastCount(Producer):
+class TakeLastBufferCount(Producer):
   def __init__(self, source, count):
     self.source = source
     self.count = count
@@ -17,7 +17,7 @@ class TakeLastCount(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(TakeLastCount.Sink, self).__init__(observer, cancel)
+      super(TakeLastBufferCount.Sink, self).__init__(observer, cancel)
       self.parent = parent
       self.queue = deque()
 
@@ -47,7 +47,7 @@ class TakeLastCount(Producer):
       self.dispose()
 
 
-class TakeLastTime(Producer):
+class TakeLastBufferTime(Producer):
   def __init__(self, source, duration, scheduler):
     self.source = source
     self.duration = duration
@@ -60,7 +60,7 @@ class TakeLastTime(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(TakeLastTime.Sink, self).__init__(observer, cancel)
+      super(TakeLastBufferTime.Sink, self).__init__(observer, cancel)
       self.parent = parent
 
     def run(self):

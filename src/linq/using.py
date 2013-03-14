@@ -3,7 +3,7 @@ from observable import Observable, Producer
 from .sink import Sink
 
 
-class TimeStamp(Producer):
+class Using(Producer):
   def __init__(self, resourceFactory, observableFactory):
     self.resourceFactory = resourceFactory
     self.observableFactory = observableFactory
@@ -15,7 +15,7 @@ class TimeStamp(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(TimeStamp.Sink, self).__init__(observer, cancel)
+      super(Using.Sink, self).__init__(observer, cancel)
       self.parent = parent
 
     def run(self):

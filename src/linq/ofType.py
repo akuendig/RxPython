@@ -2,7 +2,7 @@ from observable import Producer
 from .sink import Sink
 
 
-class DistinctUntilChanged(Producer):
+class OfType(Producer):
   def __init__(self, source, tpe):
     self.source = source
     self.tpe = tpe
@@ -14,7 +14,7 @@ class DistinctUntilChanged(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(DistinctUntilChanged.Sink, self).__init__(observer, cancel)
+      super(OfType.Sink, self).__init__(observer, cancel)
       self.parent = parent
       self.currentKey = None
       self.hasCurrentKey = False

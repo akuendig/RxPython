@@ -3,7 +3,7 @@ from observable import Producer
 from .sink import Sink
 
 
-class MaxBy(Producer):
+class MinBy(Producer):
   def __init__(self, source, keySelector, compareTo=defaultCompareTo):
     self.source = source
     self.keySelector = keySelector
@@ -16,7 +16,7 @@ class MaxBy(Producer):
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(MaxBy.Sink, self).__init__(observer, cancel)
+      super(MinBy.Sink, self).__init__(observer, cancel)
       self.parent = parent
       self.hasValue = False
       self.lastKey = None
