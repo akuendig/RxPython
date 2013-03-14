@@ -26,6 +26,7 @@ from .finallyOp import Finally
 from .firstAsync import FirstAsync
 from .forEach import ForEach
 from .forOp import For
+from .fromEvent import FromEvent
 from .generate import Generate
 from .getIterator import GetIterator
 from .groupBy import GroupBy
@@ -86,7 +87,7 @@ from .whileOp import While
 from .window import Window
 from .zip import Zip
 
-from disposable import SchedulerDisposable, SerialDisposable, SingleAssignmentDisposable
+from disposable import Disposable, SchedulerDisposable, SerialDisposable, SingleAssignmentDisposable
 from observable import AnonymousObservable, ConnectableObservable, Observable
 from observer import AnonymousObserver
 from scheduler import Scheduler
@@ -461,6 +462,61 @@ Observeable.synchronize = synchronize
 def toObservable(self, scheduler = Scheduler.iteration):
   return ToObservable(self, scheduler)
 Observable.toObservable = toObservable
+
+####################
+#    Creation      #
+####################
+
+def create(subscribe):
+  def wrapper(observer):
+    a = subscribe(observer)
+
+    if isinstance(a, Disposable):
+      return a
+    else:
+      return Disposable.create(a)
+
+  return AnonymousObservable(wrapper)
+Observable.create = create
+
+Observable.defer = lambda observableFactory: Defer(observableFactory)
+
+def empty(scheduler=Scheduler.constantTimeOperations):
+  return Empty(scheduler)
+Observable.empty = empty
+
+def generate(initialState, condition, iterate, resultSelector, scheduler=Scheduler.iteration):
+  return Generate(initialState, condition, iterate, resultSelector, scheduler)
+Observable.generate = generate
+
+Observable.never = lambda: Never()
+
+def rangeOp(start, count, scheduler=Scheduler.iteration):
+  return Range(start, count, scheduler)
+Observable.range = rangeOp
+
+def repeat(value, count=None, scheduler=Scheduler.iteration):
+  return Repeat(value, count, scheduler)
+Observable.repeat = repeat
+
+def returnOp(value, scheduler = Scheduler.constantTimeOperations):
+  return Return(value, scheduler)
+Observable.ret = returnOp
+Observable.returnValue = returnOp
+
+def throw(exception, scheduler=Scheduler.constantTimeOperations):
+  return Throw(exception, scheduler)
+Observable.throw = throw
+
+Observable.using = lambda resourceFactory, observableFactory: Using(resourceFactory, observableFactory)
+
+####################
+#    FromEvent     #
+####################
+
+def fromEvent(addHandler, removeHandler, scheduler=Scheduler.default):
+  return FromEvent(addHandler, removeHandler, scheduler)
+Observable.fromEvent = fromEvent
 
 
 
