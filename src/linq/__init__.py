@@ -84,8 +84,14 @@ from .whileOp import While
 from .window import Window
 from .zip import Zip
 
-from observable import Observable
-from internal import defaultComparer, defaultCompareTo
+from observable import ConnectableObservable, Observable
+from observer import AnonymousObserver
+from scheduler import currentThreadScheduler
+from subject import AsyncSubject, BehaviorSubject, ReplaySubject, Subject
+from internal import defaultComparer, defaultCompareTo, Struct
+
+import sys
+from threading import Event
 
 def truePredicate(c): return True
 
@@ -181,6 +187,115 @@ def toDictionary(self, keySelector=id, elementSelector=id):
 Observable.toDictionary = toDictionary
 
 Observable.toList = lambda self: ToList(self)
+
+####################
+#     Binding      #
+####################
+
+def multicast(self, subject=None, subjectSelector=None, selector=None):
+  if subject != None:
+    assert subjectSelector == None and selector == None
+    return ConnectableObservable(self, subject)
+  else:
+    assert subjectSelector != None and selector != None
+    return Multicast(self, subjectSelector, selector)
+Observable.multicast = multicast
+
+def publish(self, selector=None, initialValue=None):
+  if selector == None:
+    if initialValue == None:
+      return self.multicast(Subject())
+    else:
+      return self.multicast(BehaviorSubject(initialValue))
+  else:
+    if initialValue == None:
+      def sub(): return Subject()
+      return self.multicast(subjectSelector=sub, selector=selector)
+    else:
+      def sub(): return BehaviorSubject(initialValue)
+      return self.multicast(subjectSelector=sub, selector=selector)
+Observable.publish = publish
+
+def publishLast(self, selector=None):
+  if selector == None:
+    return self.multicast(AsyncSubject())
+  else:
+    def sub(): return AsyncSubject()
+    return self.multicast(subjectSelector=sub, selector=selector)
+Observable.publishLast = publishLast
+
+Observable.refCount = lambda self: RefCount(self)
+
+def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, scheduler=currentThreadScheduler):
+  if selector == None:
+    return self.multicast(ReplaySubject(bufferSize, window, scheduler))
+  else:
+    def sub(): return ReplaySubject(bufferSize, window, scheduler)
+    return self.multicast(subjectSelector=sub, selector=selector)
+Observable.replay = replay
+
+####################
+#     Blocking     #
+####################
+
+def collect(self, getInitialCollector, merge, getNewCollector=None):
+  if getNewCollector == None:
+    return Collect(self, getInitialCollector, merge, lambda _: getInitialCollector())
+  else:
+    return Collect(self, getInitialCollector, merge, getNewCollector)
+Observable.collect = collect
+
+def firstOrDefaultInternal(source, throwIfEmpty):
+  state = Struct(
+    value=None,
+    hasValue=False,
+    ex=None,
+    event=Event()
+  )
+
+  def onNext(value):
+    if not state.hasValue:
+      state.value = value
+    state.hasValue = True
+    state.event.set()
+
+  def onError(exception):
+    state.ex = exception
+    state.event.set()
+
+  def onCompleted():
+    state.event.set()
+
+  with source.subscribe(AnonymousObserver(onNext, onError, onCompleted)):
+    state.event.wait()
+
+  if state.ex != None:
+    raise state.ex
+
+  if throwIfEmpty and not state.hasValue:
+    raise Exception("Invalid operation, no elements in observable")
+
+  return state.value
+
+def first(self, predicate=None):
+  if predicate == None:
+    return firstOrDefaultInternal(self, True)
+  else:
+    return first(Where(self, predicate))
+Observable.first = first
+
+def firstOrDefault(self, predicate=None):
+  if predicate == None:
+    return firstOrDefaultInternal(self, False)
+  else:
+    return firstOrDefault(Where(self, predicate))
+
+
+
+
+
+
+
 
 
 
