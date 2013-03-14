@@ -1,10 +1,9 @@
-from internal import defaultCompareTo
 from observable import Producer
 from .sink import Sink
 
 
 class Min(Producer):
-  def __init__(self, source, compareTo=defaultCompareTo):
+  def __init__(self, source, compareTo):
     self.source = source
     self.compareTo = compareTo
 

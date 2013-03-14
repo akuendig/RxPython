@@ -2,13 +2,12 @@ from disposable import CompositeDisposable
 from observable import Producer
 from observer import Observer
 from .sink import Sink
-from internal import defaultComparer
 from collections import deque
 from threading import RLock
 
 
 class SequenceEqual(Producer):
-  def __init__(self, first, second, equals=defaultComparer):
+  def __init__(self, first, second, equals):
     self.first = first
     self.second = second
     self.equals = equals

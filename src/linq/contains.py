@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Contains(Producer):
-  def __init__(self, source, value, equals=lambda a, b: a == b):
+  def __init__(self, source, value, equals):
     self.source = source
     self.value = value
     self.equals = equals

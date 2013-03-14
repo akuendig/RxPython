@@ -1,6 +1,6 @@
-from .addRef import AddRef
 from .aggregate import Aggregate
 from .all import All
+from .any import Any
 from .amb import Amb
 from .asObservable import AsObservable
 from .average import Average
@@ -83,5 +83,106 @@ from .where import Where
 from .whileOp import While
 from .window import Window
 from .zip import Zip
+
+from observable import Observable
+from internal import defaultComparer, defaultCompareTo
+
+def truePredicate(c): return True
+
+####################
+#    Aggreagate    #
+####################
+
+def aggregate(self, seed, accumulator, resultSelector=id):
+  return Aggregate(self, seed, accumulator, resultSelector)
+Observable.aggregate = aggregate
+
+def average(self, selector=id):
+  if selector == id:
+    return Average(self)
+  else:
+    return Average(Select(self, selector))
+Observable.average = average
+
+Observable.all = lambda self, predicate: All(self, predicate)
+
+def anyOp(self, predicate=truePredicate):
+  return Any(self, predicate)
+Observable.any = anyOp
+
+Observable.average = lambda self: Average(self)
+
+def contains(self, value, comparer=defaultComparer):
+  return Contains(self, value, comparer)
+Observable.contains = contains
+
+def count(self, predicate=truePredicate):
+  return Count(self, predicate)
+Observable.count = count
+
+Observable.elementAt = lambda self, index: ElementAt(self, index, True)
+Observable.elementAtOrDefault = lambda self, index: ElementAt(self, index, False)
+
+def firstAsync(self, predicate=truePredicate):
+  return FirstAsync(self, predicate, True)
+Observable.firstAsync = firstAsync
+
+def firstAsyncOrDefault(self, predicate=truePredicate):
+  return FirstAsync(self, predicate, False)
+Observable.firstAsyncOrDefault = firstAsyncOrDefault
+
+Observable.isEmpty = lambda self: IsEmpty(self)
+
+def lastAsync(self, predicate=truePredicate):
+  return LastAsync(self, predicate, True)
+Observable.lastAsync = lastAsync
+
+def lastAsyncOrDefault(self, predicate=truePredicate):
+  return LastAsync(self, predicate, False)
+Observable.lastAsyncOrDefault = lastAsyncOrDefault
+
+def maxOp(self, compareTo=defaultCompareTo):
+  return Max(self, compareTo)
+Observable.max = maxOp
+
+def maxBy(self, keySelector, compareTo=defaultCompareTo):
+  return MaxBy(self, keySelector, compareTo)
+Observable.maxBy = maxBy
+
+def minOp(self, compareTo=defaultCompareTo):
+  return Min(self, compareTo)
+Observable.min = minOp
+
+def minBy(self, keySelector, compareTo=defaultCompareTo):
+  return MinBy(self, keySelector, compareTo)
+Observable.minBy = minBy
+
+def sequenceEqual(self, second, compareTo=defaultCompareTo):
+  return SequenceEqual(self, second, compareTo)
+Observable.sequenceEqual = sequenceEqual
+
+def singleAsync(self, predicate=truePredicate):
+  return SingleAsync(self, predicate, True)
+Observable.singleAsync = singleAsync
+
+def singleAsyncOrDefault(self, predicate=truePredicate):
+  return SingleAsync(self, predicate, False)
+Observable.singleAsyncOrDefault = singleAsyncOrDefault
+
+def sumOp(self, selector=id):
+  if selector == id:
+    return Sum(self)
+  else:
+    return Sum(Select(self, selector))
+Observable.sum = sumOp
+
+def toDictionary(self, keySelector=id, elementSelector=id):
+  return ToDictionary(self, keySelector, elementSelector)
+Observable.toDictionary = toDictionary
+
+Observable.toList = lambda self: ToList(self)
+
+
+
 
 

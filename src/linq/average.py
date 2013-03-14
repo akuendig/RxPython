@@ -3,9 +3,8 @@ from .sink import Sink
 
 
 class Average(Producer):
-  def __init__(self, source, selector=id):
+  def __init__(self, source):
     self.source = source
-    self.selector = selector
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(observer, cancel)

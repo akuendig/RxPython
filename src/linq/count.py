@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Count(Producer):
-  def __init__(self, source, predicate=lambda _: True):
+  def __init__(self, source, predicate):
     self.source = source
     self.predicate = predicate
 

@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Aggregate(Producer):
-  def __init__(self, source, seed, accumulator, resultSelector = id):
+  def __init__(self, source, seed, accumulator, resultSelector):
     self.source = source
     self.seed = seed
     self.accumulator = accumulator
