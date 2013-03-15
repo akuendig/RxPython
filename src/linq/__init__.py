@@ -518,6 +518,135 @@ def fromEvent(addHandler, removeHandler, scheduler=Scheduler.default):
   return FromEvent(addHandler, removeHandler, scheduler)
 Observable.fromEvent = fromEvent
 
+####################
+#    Imperative    #
+####################
+
+def case(self, sources, schedulerOrDefaultSource=None):
+  if schedulerOrDefaultSource == None:
+    return Case(self, sources, Empty())
+  elif isinstance(schedulerOrDefaultSource, Scheduler):
+    return Case(self, sources, Empty(schedulerOrDefaultSource))
+  else:
+    return Case(self, sources, schedulerOrDefaultSource)
+Observable.case = case
+
+Observable.doWhile = lambda self, condition: DoWhile(self, condition)
+
+Observable.iterableFor = lambda source, resultSelector: For(source, resultSelector)
+
+def branch(condition, thenSource, schedulerOrElseSource=None):
+  if schedulerOrElseSource == None:
+    return If(condition, thenSource, Empty())
+  elif isinstance(schedulerOrElseSource, Scheduler):
+    return If(condition, thenSource, Empty(schedulerOrElseSource))
+  else:
+    return If(condition, thenSource, schedulerOrElseSource)
+Observable.branch = branch
+
+Observable.loop = lambda condition, source: While(condition, source)
+
+####################
+#      Joins       #
+####################
+
+####################
+#    Multiple      #
+####################
+
+def amb(first, *second):
+  for source in second:
+    first = Amb(first, source)
+Observable.amb = amb
+
+# def bufferWithSelector(self, bufferOpeningSelector, bufferClosingSelector):
+#   pass
+
+Observable.catchException = lambda self, handler: CatchException(self, handler)
+
+def catchFallback(self, *sources):
+  if len(sources) == 1:
+    try:
+      it = iter(sources[0])
+    except TypeError:
+      sources = [sources[0]]
+    else:
+      sources = list(it)
+  else:
+    sources = list(sources)
+
+  return CatchFallback(self, sources)
+Observable.catchFallback = catchFallback
+
+def combineLatest(sources, resultSelector=list):
+  return CombineLatest(list(sources), resultSelector)
+Observable.combineLatest = combineLatest
+
+Observable.concat = lambda sources: Concat(list(sources))
+
+def merge(sources, maxConcurrency=0):
+  return Merge(list(sources), maxConcurrency)
+Observable.merge = merge
+
+def onErrorResumeNext(*sources):
+  if len(sources) == 1:
+    try:
+      it = iter(sources[0])
+    except TypeError:
+      sources = [sources[0]]
+    else:
+      sources = list(it)
+  else:
+    sources = list(sources)
+
+  return OnErrorResumeNext(sources)
+Observable.onErrorResumeNext = onErrorResumeNext
+
+def skipUntil(self, otherOrTime, scheduler=None):
+  if isinstance(otherOrTime, Observable):
+    return SkipUntilObservable(self, otherOrTime)
+  else:
+    return SkipUntilTime(self, otherOrTime, scheduler)
+Observable.skipUntil = skipUntil
+
+Observable.switch = lambda sources: Switch(list(sources))
+
+def takeUntil(self, otherOrTime, scheduler=None):
+  if isinstance(otherOrTime, Observable):
+    return TakeUntilObservable(self, otherOrTime)
+  else:
+    return TakeUntilTime(self, otherOrTime, scheduler)
+Observable.takeUntil = takeUntil
+
+def zipOp(*sources):
+  if len(sources) == 1:
+    try:
+      it = iter(sources[0])
+    except TypeError:
+      sources = [sources[0]]
+    else:
+      sources = list(it)
+  else:
+    sources = list(sources)
+
+  return Zip(sources)
+Observable.zip = zipOp
+
+
+####################
+#      Single      #
+####################
+
+####################
+# StandardSequence #
+####################
+
+####################
+#       Time       #
+####################
+
+
+
 
 
 

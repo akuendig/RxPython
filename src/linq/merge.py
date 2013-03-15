@@ -7,7 +7,7 @@ from queue import Queue
 
 
 class Merge(Producer):
-  def __init__(self, sources, maxConcurrency=0):
+  def __init__(self, sources, maxConcurrency):
     self.sources = sources
     self.maxConcurrency = maxConcurrency
 
