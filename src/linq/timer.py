@@ -5,7 +5,7 @@ from .sink import Sink
 
 
 class Timer(Producer):
-  def __init__(self, dueTime, isAbsolute, period=None, scheduler):
+  def __init__(self, dueTime, isAbsolute, period, scheduler):
     self.dueTime = dueTime
     self.isAbsolute = isAbsolute
     self.period = period

@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Distinct(Producer):
-  def __init__(self, source, keySelector=id):
+  def __init__(self, source, keySelector):
     self.source = source
     self.keySelector = keySelector
 

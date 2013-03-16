@@ -8,11 +8,11 @@ from threading import Event, RLock, Semaphore
 
 
 class DelayTime(Producer):
-  def __init__(self, source, dueTime, scheduler, isAbsolute):
+  def __init__(self, source, dueTime, isAbsolute, scheduler):
     self.source = source
     self.dueTime = dueTime
-    self.scheduler = scheduler
     self.isAbsolute = isAbsolute
+    self.scheduler = scheduler
 
   def run(self, observer, cancel, setSink):
     if self.scheduler.isLongRunning:

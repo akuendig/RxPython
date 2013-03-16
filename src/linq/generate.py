@@ -4,14 +4,14 @@ from .sink import Sink
 
 
 class Generate(Producer):
-  def __init__(self, initialState, condition, iterate, resultSelector, scheduler, timeSelector=None, isAbsolute=False):
+  def __init__(self, initialState, condition, iterate, resultSelector, timeSelector, isAbsolute, scheduler):
     self.initialState = initialState
     self.condition = condition
     self.iterate = iterate
     self.resultSelector = resultSelector
-    self.scheduler = scheduler
     self.timeSelector = timeSelector
     self.isAbsolute = isAbsolute
+    self.scheduler = scheduler
 
   def run(self, observer, cancel, setSink):
     if self.isAbsolute and self.timeSelector != None:

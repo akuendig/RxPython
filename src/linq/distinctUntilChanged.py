@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class DistinctUntilChanged(Producer):
-  def __init__(self, source, keySelector):
+  def __init__(self, source, keySelector, equals):
     self.source = source
     self.keySelector = keySelector
 
@@ -30,7 +30,7 @@ class DistinctUntilChanged(Producer):
 
         if self.hasCurrentKey:
           try:
-            equal = self.currentKey == key
+            equal = self.parent.equals(self.currentKey, key)
           except Exception as e:
             self.observer.onError(e)
             self.dispose()

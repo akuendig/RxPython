@@ -3,7 +3,7 @@ from .sink import ConcatSink
 
 
 class For(Producer):
-  def __init__(self, source, resultSelector=id):
+  def __init__(self, source, resultSelector):
     self.source = source
     self.resultSelector = resultSelector
 
