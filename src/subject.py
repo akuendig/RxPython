@@ -94,7 +94,7 @@ class Subject(Observable, Observer):
     return AnonymousSubject(observer, observable)
 
   @staticmethod
-  def synchonize(subject, scheduler=None):
+  def synchronize(subject, scheduler=None):
     if scheduler == None:
       return AnonymousSubject(Observer.synchronize(subject), subject)
     else:

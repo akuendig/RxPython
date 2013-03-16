@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Select(Producer):
-  def __init__(self, source, selector, withIndex=False):
+  def __init__(self, source, selector, withIndex):
     self.source = source
     self.selector = selector
     self.withIndex = withIndex

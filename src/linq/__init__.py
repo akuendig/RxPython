@@ -67,7 +67,7 @@ from .skipUntil import SkipUntilObservable, SkipUntilTime
 from .skipWhile import SkipWhile
 from .sum import Sum
 from .switch import Switch
-from .synchonize import Synchronize
+from .synchronize import Synchronize
 from .take import TakeCount, TakeTime
 from .takeLast import TakeLastCount, TakeLastTime
 from .takeLastBuffer import TakeLastBufferCount, TakeLastBufferTime
@@ -109,20 +109,20 @@ def aggregate(self, seed, accumulator, resultSelector=id):
   return Aggregate(self, seed, accumulator, resultSelector)
 Observable.aggregate = aggregate
 
+def allOp(self, predicate=truePredicate):
+  return All(self, predicate)
+Observable.all = allOp
+
+def anyOp(self, predicate=truePredicate):
+  return Any(self, predicate)
+Observable.any = anyOp
+
 def average(self, selector=id):
   if selector == id:
     return Average(self)
   else:
     return Average(Select(self, selector))
 Observable.average = average
-
-Observable.all = lambda self, predicate: All(self, predicate)
-
-def anyOp(self, predicate=truePredicate):
-  return Any(self, predicate)
-Observable.any = anyOp
-
-Observable.average = lambda self: Average(self)
 
 def contains(self, value, comparer=defaultComparer):
   return Contains(self, value, comparer)
@@ -198,36 +198,36 @@ Observable.toList = lambda self: ToList(self)
 #     Binding      #
 ####################
 
-def multicast(self, subject=None, subjectSelector=None, selector=None):
-  if subject != None:
-    assert subjectSelector == None and selector == None
-    return ConnectableObservable(self, subject)
-  else:
-    assert subjectSelector != None and selector != None
-    return Multicast(self, subjectSelector, selector)
+def multicast(self, subject):
+  return ConnectableObservable(self, subject)
 Observable.multicast = multicast
 
-def publish(self, selector=None, initialValue=None):
-  if selector == None:
-    if initialValue == None:
-      return self.multicast(Subject())
-    else:
-      return self.multicast(BehaviorSubject(initialValue))
+def multicastIndividual(self, subjectSelector, selector):
+  return Multicast(self, subjectSelector, selector)
+Observable.multicastIndividual = multicastIndividual
+
+def publish(self, initialValue=None):
+  if initialValue == None:
+    return self.multicast(Subject())
   else:
-    if initialValue == None:
-      def sub(): return Subject()
-      return self.multicast(subjectSelector=sub, selector=selector)
-    else:
-      def sub(): return BehaviorSubject(initialValue)
-      return self.multicast(subjectSelector=sub, selector=selector)
+    return self.multicast(BehaviorSubject(initialValue))
 Observable.publish = publish
+
+def publishIndividual(self, selector, initialValue=None):
+  if initialValue == None:
+    def sub(): return Subject()
+    return self.multicastIndividual(sub, selector)
+  else:
+    def sub(): return BehaviorSubject(initialValue)
+    return self.multicastIndividual(sub, selector)
+Observable.publishIndividual = publishIndividual
 
 def publishLast(self, selector=None):
   if selector == None:
     return self.multicast(AsyncSubject())
   else:
     def sub(): return AsyncSubject()
-    return self.multicast(subjectSelector=sub, selector=selector)
+    return self.multicastIndividual(sub, selector)
 Observable.publishLast = publishLast
 
 Observable.refCount = lambda self: RefCount(self)
@@ -237,7 +237,7 @@ def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, sche
     return self.multicast(ReplaySubject(bufferSize, window, scheduler))
   else:
     def sub(): return ReplaySubject(bufferSize, window, scheduler)
-    return self.multicast(subjectSelector=sub, selector=selector)
+    return self.multicastIndividual(sub, selector)
 Observable.replay = replay
 
 ####################
@@ -251,7 +251,7 @@ def collect(self, getInitialCollector, merge, getNewCollector=None):
     return Collect(self, getInitialCollector, merge, getNewCollector)
 Observable.collect = collect
 
-def firstOrDefaultInternal(source, throwIfEmpty):
+def firstOrDefaultInternal(source, throwOnEmpty):
   state = Struct(
     value=None,
     hasValue=False,
@@ -278,7 +278,7 @@ def firstOrDefaultInternal(source, throwIfEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwIfEmpty and not state.hasValue:
+  if throwOnEmpty and not state.hasValue:
     raise Exception("Invalid operation, no elements in observable")
 
   return state.value
@@ -325,7 +325,7 @@ def getIterator(self):
 Observable.getIterator = getIterator
 Observable.__iter__ = getIterator
 
-def lastOrDefaultInternal(source, throwIfEmpty):
+def lastOrDefaultInternal(source, throwOnEmpty):
   state = Struct(
     value=None,
     hasValue=False,
@@ -350,7 +350,7 @@ def lastOrDefaultInternal(source, throwIfEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwIfEmpty and not state.hasValue:
+  if throwOnEmpty and not state.hasValue:
     raise Exception("Invalid operation, no elements in observable")
 
   return state.value
@@ -376,7 +376,7 @@ Observable.mostRecent = lambda self: MostRecent(self)
 Observable.next = lambda self: Next(self)
 
 
-def singleOrDefaultInternal(source, throwIfEmpty):
+def singleOrDefaultInternal(source, throwOnEmpty):
   state = Struct(
     value=None,
     hasValue=False,
@@ -405,7 +405,7 @@ def singleOrDefaultInternal(source, throwIfEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwIfEmpty and not state.hasValue:
+  if throwOnEmpty and not state.hasValue:
     raise Exception("Invalid operation, no elements in observable")
 
   return state.value
@@ -436,7 +436,10 @@ def subscribeOn(self, scheduler):
     d = SerialDisposable()
     d.disposable = m
 
-    m.disposable = scheduler.schedule(lambda: s.disposable = SchedulerDisposable(scheduler, source.subscribeSafe(observer)))
+    def action():
+      d.disposable = SchedulerDisposable(scheduler, self.subscribeSafe(observer))
+
+    m.disposable = scheduler.schedule(action)
 
     return d
 
@@ -447,7 +450,7 @@ Observable.observeOn = lambda self, scheduler: ObserveOn(self, scheduler)
 
 def synchronize(self, gate=None):
   return Synchronize(self, gate)
-Observeable.synchronize = synchronize
+Observable.synchronize = synchronize
 
 ####################
 #   Conversion     #
@@ -729,6 +732,13 @@ def takeLast(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
     return TakeLastTime(self, countOrTime, scheduler)
 Observable.takeLast = takeLast
 
+def takeLastBuffer(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
+  if isinstance(countOrTime, int):
+    return TakeLastBufferCount(self, countOrTime)
+  else:
+    return TakeLastBufferTime(self, countOrTime, scheduler)
+Observable.takeLastBuffer = takeLastBuffer
+
 def window(self, count, skip=None):
   if skip == None:
     return Window(self, count=count, skip=count)
@@ -740,7 +750,7 @@ Observable.window = window
 # StandardSequence #
 ####################
 
-Observable.defaultIfEmpty = lambda self, default: DefaultIfEmpty(self, defaultValue)
+Observable.defaultIfEmpty = lambda self, default: DefaultIfEmpty(self, default)
 
 def distinct(self, keySelector=id):
   return Distinct(self, keySelector)
@@ -768,23 +778,23 @@ Observable.select = lambda self, selector: Select(self, selector, False)
 
 Observable.selectEnumrate = lambda self, selector: Select(self, selector, True)
 
-def selectMany(self, selector):
-  if callable(selector):
-    return SelectMany(self, selector, False)
+def selectMany(self, onNext, onError=noop, onCompleted=noop):
+  if callable(onNext):
+    return SelectMany(self, onNext, onError, onCompleted, False)
   else:
-    return SelectMany(self, lambda _: selector, False)
+    return SelectMany(self, onNext, onError, onCompleted, False)
 Observable.selectMany = selectMany
 
 #inspect.getfullargspec(selector) but not working for partial
-def selectManyEnumerate(self, selector):
-  if callable(selector):
-    return SelectMany(self, selector, True)
+def selectManyEnumerate(self, onNext, onError=noop, onCompleted=noop):
+  if callable(onNext):
+    return SelectMany(self, onNext, onError, onCompleted, True)
   else:
-    return SelectMany(self, lambda _: selector, True)
+    return SelectMany(self, onNext, onError, onCompleted, True)
 Observable.selectManyEnumerate = selectManyEnumerate
 
 def skip(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
-  if isinstance(self, Skip):
+  if isinstance(self, SkipCount) or isinstance(self, SkipTime):
     return self.omega(countOrTime)
 
   if isinstance(countOrTime, int):
@@ -798,7 +808,7 @@ Observable.skipWhile = lambda self, predicate: SkipWhile(self, predicate, False)
 Observable.skipWhileEnumerate = lambda self, predicate: SkipWhile(self, predicate, True)
 
 def take(self, countOrTime):
-  if isinstance(self, Take):
+  if isinstance(self, TakeCount) or isinstance(self, TakeTime):
     return self.omega(countOrTime)
 
   if isinstance(countOrTime, int):
@@ -847,11 +857,11 @@ def delayIndividual(self, subscriptionDelay, delayDurationSelector):
 Observable.delayIndividual = delayIndividual
 
 def delaySubscriptionRelative(self, dueTime, scheduler=Scheduler.timeBasedOperation):
-  return DelaySubscriptionTime(self, dueTime, False, scheduler)
+  return DelaySubscription(self, dueTime, False, scheduler)
 Observable.delaySubscriptionRelative = delaySubscriptionRelative
 
 def delaySubscriptionAbsolute(self, dueTime, scheduler=Scheduler.timeBasedOperation):
-  return DelaySubscriptionTime(self, dueTime, True, scheduler)
+  return DelaySubscription(self, dueTime, True, scheduler)
 Observable.delaySubscriptionAbsolute = delaySubscriptionAbsolute
 
 def generateRelative(initialState, condition, iterate, resultSelector, timeSelector, scheduler=Scheduler.timeBasedOperation):

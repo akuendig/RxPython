@@ -10,7 +10,7 @@ from threading import RLock
 
 
 class SelectMany(Producer):
-  def __init__(self, source, selector, selectorOnError=None, selectorOnCompleted=None, withIndex=False):
+  def __init__(self, source, selector, selectorOnError, selectorOnCompleted, withIndex):
     self.source = source
     self.selector = selector
     self.selectorOnError = selectorOnError

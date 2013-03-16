@@ -1,4 +1,4 @@
-from disposabe import BooleanDisposable, Disposable
+from disposable import BooleanDisposable, Disposable
 from internal import Struct
 from observable import Producer
 from .sink import Sink

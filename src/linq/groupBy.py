@@ -1,4 +1,4 @@
-from disposable import CompositDisposable, RefCountDisposable
+from disposable import CompositeDisposable, RefCountDisposable
 from observable import GroupObservable, Producer
 from subject import Subject
 from .sink import Sink
@@ -11,7 +11,7 @@ class GroupBy(Producer):
     self.elementSelector = elementSelector
 
   def run(self, observer, cancel, setSink):
-    self.groupDisposable = CompositDisposable()
+    self.groupDisposable = CompositeDisposable()
     self.refCountDisposable = RefCountDisposable(self.groupDisposable)
 
     sink = self.Sink(self, observer, cancel)

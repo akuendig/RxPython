@@ -116,9 +116,9 @@ class ConnectableObservable(Observable):
           self.parent.connection = None
 
 
-class GroupedObservable(ObservableBase):
+class GroupObservable(ObservableBase):
   def __init__(self, key, subject, refCount=None):
-    super(GroupedObservable, self).__init__()
+    super(GroupObservable, self).__init__()
     self.key = key
     self.subject = subject
     self.refCount = refCount

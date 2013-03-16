@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class Repeat(Producer):
-  def __init__(self, value, repeatCount=None, scheduler):
+  def __init__(self, value, repeatCount, scheduler):
     self.value = value
     self.repeatCount = repeatCount
     self.scheduler = scheduler

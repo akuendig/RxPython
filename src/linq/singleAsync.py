@@ -3,7 +3,7 @@ from .sink import Sink
 
 
 class SingleAsync(Producer):
-  def __init__(self, source, predicate=lambda _: True, throwOnEmpty):
+  def __init__(self, source, predicate, throwOnEmpty):
     self.source = source
     self.predicate = predicate
     self.throwOnEmpty = throwOnEmpty

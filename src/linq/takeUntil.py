@@ -1,4 +1,3 @@
-from concurrency import Atomic
 from disposable import CompositeDisposable, SingleAssignmentDisposable
 from observable import Producer
 from observer import Observer

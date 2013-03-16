@@ -1,4 +1,4 @@
-from disposable import CompositDisposable, RefCountDisposable, SingleAssignmentDisposable
+from disposable import CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable
 from observable import GroupObservable, Producer
 from observer import Observer
 from subject import Subject
@@ -14,7 +14,7 @@ class GroupByUntil(Producer):
     self.durationSelector = durationSelector
 
   def run(self, observer, cancel, setSink):
-    self.groupDisposable = CompositDisposable()
+    self.groupDisposable = CompositeDisposable()
     self.refCountDisposable = RefCountDisposable(self.groupDisposable)
 
     sink = self.Sink(self, observer, cancel)

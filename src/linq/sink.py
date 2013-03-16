@@ -1,6 +1,6 @@
 from observer import Observer
 from concurrency import Atomic
-from dispoable import AsyncLock, Disposable, CompositDisposable, SerialDisposable, SingleAssignmentDisposable
+from disposable import AsyncLock, Disposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
 from scheduler import Scheduler
 
 
@@ -67,7 +67,7 @@ class TailRecursiveSink(Sink):
 
     cancel = Scheduler.tailRecursion.scheduleRecursive(scheduled)
 
-    return CompositDisposable(
+    return CompositeDisposable(
       self.subscription,
       cancel,
       Disposable.create(lambda: self.gate.wait(self.dispose))
