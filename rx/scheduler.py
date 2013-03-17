@@ -1,15 +1,15 @@
-from disposable import AsyncLock, Disposable, BooleanDisposable, CompositeDisposable, SingleAssignmentDisposable
-from functools import partial as bind
-from concurrency import Atomic
-from internal import defaultNow, defaultSubComparer
+from rx.concurrency import Atomic
+from rx.disposable import AsyncLock, Disposable, BooleanDisposable, CompositeDisposable, SingleAssignmentDisposable
+from rx.internal import defaultNow, defaultSubComparer
 import threading
-from threading import Thread, Timer, RLock
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial as bind
 from queue import PriorityQueue
+from threading import Thread, Timer, RLock
 from time import sleep
 
 
-class Scheduler:
+class Scheduler(object):
   """Provides a set of static properties to access commonly
   used Schedulers."""
 
@@ -253,6 +253,8 @@ class CurrentThreadScheduler(Scheduler):
       self._scheduleAbsolute
     )
 
+  _local = threading.local()
+
   def isScheduleRequired(self):
     return self._queue == None
 
@@ -264,14 +266,14 @@ class CurrentThreadScheduler(Scheduler):
 
   def _queue():
     def fget(self):
-      if not hasattr(threading.local(), 'reactive_extensions_current_thread_queue'):
-        threading.local().reactive_extensions_current_thread_queue = None
+      if not hasattr(self._local, 'reactive_extensions_current_thread_queue'):
+        self._local.reactive_extensions_current_thread_queue = None
 
-      return threading.local().reactive_extensions_current_thread_queue
+      return self._local.reactive_extensions_current_thread_queue
     def fset(self, value):
-      threading.local().reactive_extensions_current_thread_queue = value
+      self._local.reactive_extensions_current_thread_queue = value
     def fdel(self):
-      del threading.local().reactive_extensions_current_thread_queue
+      del self._local.reactive_extensions_current_thread_queue
     return locals()
   _queue = property(**_queue())
 
@@ -282,13 +284,15 @@ class CurrentThreadScheduler(Scheduler):
     self._queue = None
 
   def _run(self):
-    while self._queue.not_empty():
+    while not self._queue.empty():
       item = self._queue.get()
 
       if item.isCancelled():
         continue
 
-      sleep(item.dueTime - Scheduler.now())
+      dt = item.dueTime - Scheduler.now()
+      if dt > 0:
+        sleep(dt)
 
       if not item.isCancelled():
         item.invoke()
@@ -296,7 +300,7 @@ class CurrentThreadScheduler(Scheduler):
   def _scheduleNow(self, state, action):
     return self.scheduleWithRelativeAndState(state, 0, action)
 
-  def _scheduleRelative(self, dueTime, action):
+  def _scheduleRelative(self, state, dueTime, action):
     dt = self.now() + Scheduler.normalize(dueTime)
     si = ScheduledItem(self, state, action, dt)
 
@@ -581,7 +585,7 @@ class ImmediateScheduler(Scheduler):
       return self.scheduleWithRelativeAndState(state, dueTime - self.now(), action)
 
 
-class RecursiveScheduledFunction:
+class RecursiveScheduledFunction(object):
   def __init__(self, action, scheduler, method = None):
     self.action = action
     self.schedule = scheduler if method == None else scheduler[method]
@@ -654,7 +658,7 @@ class PeriodicTimer(object):
     self.run()
 
 
-class ScheduledItem:
+class ScheduledItem(object):
   """Provides a scheduled cancelable item with state and comparer"""
   def __init__(self, scheduler, state, action, dueTime, comparer = defaultSubComparer):
     self.scheduler = scheduler
@@ -665,7 +669,7 @@ class ScheduledItem:
     self.disposable = SingleAssignmentDisposable()
 
   def invoke(self):
-    self.disposable.disposable(self.invokeCore())
+    self.disposable.disposable = self.invokeCore()
 
   def isCancelled(self):
     return self.disposable.isDisposed

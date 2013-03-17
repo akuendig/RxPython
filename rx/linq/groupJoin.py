@@ -1,7 +1,7 @@
-from disposable import CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable
-from observable import Producer
-from observer import Observer
-from subject import Subject
+from rx.disposable import CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable
+from rx.observable import Producer
+from rx.observer import Observer
+from rx.subject import Subject
 from .addRef import AddRef
 from .sink import Sink
 from threading import RLock

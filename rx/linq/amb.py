@@ -1,6 +1,6 @@
-from observer import Observer
-from observable import Producer
-from disposable import CompositeDisposable, SingleAssignmentDisposable
+from rx.observer import Observer
+from rx.observable import Producer
+from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from .sink import Sink
 from threading import RLock
 

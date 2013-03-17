@@ -1,6 +1,6 @@
-from observable import Producer
-from observer import Observer
-from concurrency import Atomic
+from rx.observable import Producer
+from rx.observer import Observer
+from rx.concurrency import Atomic
 
 
 class ForEach(Producer):

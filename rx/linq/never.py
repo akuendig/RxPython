@@ -1,5 +1,5 @@
-from disposable import Disposable
-from observable import Observable
+from rx.disposable import Disposable
+from rx.observable import Observable
 
 
 class Never(Observable):

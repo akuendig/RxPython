@@ -1,5 +1,5 @@
-from observable import Producer
-from notification import Notification
+from rx.observable import Producer
+from rx.notification import Notification
 from .sink import Sink
 
 

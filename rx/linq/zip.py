@@ -1,6 +1,6 @@
-from disposable import CompositeDisposable, Disposable, SingleAssignmentDisposable
-from observable import Producer
-from observer import Observer
+from rx.disposable import CompositeDisposable, Disposable, SingleAssignmentDisposable
+from rx.observable import Producer
+from rx.observer import Observer
 from .sink import Sink
 from collections import deque
 from itertools import repeat

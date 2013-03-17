@@ -88,12 +88,12 @@ from .whileOp import While
 from .window import Window
 from .zip import Zip
 
-from disposable import Disposable, SchedulerDisposable, SerialDisposable, SingleAssignmentDisposable
-from observable import AnonymousObservable, ConnectableObservable, Observable
-from observer import AnonymousObserver
-from scheduler import Scheduler
-from subject import AsyncSubject, BehaviorSubject, ReplaySubject, Subject
-from internal import defaultComparer, defaultCompareTo, noop, Struct
+from rx.disposable import Disposable, SchedulerDisposable, SerialDisposable, SingleAssignmentDisposable
+from rx.internal import defaultComparer, defaultCompareTo, identity, noop, Struct
+from rx.observable import AnonymousObservable, ConnectableObservable, Observable
+from rx.observer import AnonymousObserver
+from rx.scheduler import Scheduler
+from rx.subject import AsyncSubject, BehaviorSubject, ReplaySubject, Subject
 
 import itertools
 import sys
@@ -105,11 +105,11 @@ def truePredicate(c): return True
 #    Aggreagate    #
 ####################
 
-def aggregate(self, seed, accumulator, resultSelector=id):
+def aggregate(self, seed, accumulator, resultSelector=identity):
   return Aggregate(self, seed, accumulator, resultSelector)
 Observable.aggregate = aggregate
 
-def allOp(self, predicate=truePredicate):
+def allOp(self, predicate):
   return All(self, predicate)
 Observable.all = allOp
 
@@ -117,8 +117,8 @@ def anyOp(self, predicate=truePredicate):
   return Any(self, predicate)
 Observable.any = anyOp
 
-def average(self, selector=id):
-  if selector == id:
+def average(self, selector=identity):
+  if selector == identity:
     return Average(self)
   else:
     return Average(Select(self, selector))
@@ -181,14 +181,14 @@ def singleAsyncOrDefault(self, predicate=truePredicate):
   return SingleAsync(self, predicate, False)
 Observable.singleAsyncOrDefault = singleAsyncOrDefault
 
-def sumOp(self, selector=id):
-  if selector == id:
+def sumOp(self, selector=identity):
+  if selector == identity:
     return Sum(self)
   else:
     return Sum(Select(self, selector))
 Observable.sum = sumOp
 
-def toDictionary(self, keySelector=id, elementSelector=id):
+def toDictionary(self, keySelector=identity, elementSelector=identity):
   return ToDictionary(self, keySelector, elementSelector)
 Observable.toDictionary = toDictionary
 
@@ -660,7 +660,7 @@ def dematerialize(self):
     return Dematerialize(self)
 Observable.dematerialize = dematerialize
 
-def distinctUntilChanged(self, keySelector=id, equals=defaultComparer):
+def distinctUntilChanged(self, keySelector=identity, equals=defaultComparer):
   return DistinctUntilChanged(self, keySelector, equals)
 Observable.distinctUntilChanged = distinctUntilChanged
 
@@ -752,11 +752,11 @@ Observable.window = window
 
 Observable.defaultIfEmpty = lambda self, default: DefaultIfEmpty(self, default)
 
-def distinct(self, keySelector=id):
+def distinct(self, keySelector=identity):
   return Distinct(self, keySelector)
 Observable.distinct = distinct
 
-def groupBy(self, keySelector=id, elementSelector=id):
+def groupBy(self, keySelector=identity, elementSelector=identity):
   return GroupBy(self, keySelector, elementSelector)
 Observable.groupBy = groupBy
 

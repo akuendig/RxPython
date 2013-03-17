@@ -16,25 +16,25 @@ class Atomic:
 
   def exchange(self, value):
     with self.lock:
-      old = self.value
-      self.value = value
+      old = self._value
+      self._value = value
       return old
 
   def compareExchange(self, value, expected):
     with self.lock:
-      old = self.value
+      old = self._value
 
       if old == expected:
-        self.value = value
+        self._value = value
 
       return old
 
   def inc(self, by=1):
     with self.lock:
-      self.value += by
+      self._value += by
       return self.value
 
   def dec(self, by=1):
     with self.lock:
-      self.value -= by
+      self._value -= by
       return self.value

@@ -1,4 +1,4 @@
-from observable import Producer
+from rx.observable import Producer
 from .sink import Sink
 
 
@@ -8,7 +8,7 @@ class Count(Producer):
     self.predicate = predicate
 
   def run(self, observer, cancel, setSink):
-    sink = self.Sink(observer, cancel)
+    sink = self.Sink(self, observer, cancel)
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
@@ -16,8 +16,9 @@ class Count(Producer):
     return self.sources
 
   class Sink(Sink):
-    def __init__(self, observer, cancel):
+    def __init__(self, parent, observer, cancel):
       super(Count.Sink, self).__init__(observer, cancel)
+      self.parent = parent
       self.count = 0
 
     def onNext(self, value):

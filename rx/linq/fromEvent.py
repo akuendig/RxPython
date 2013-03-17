@@ -1,6 +1,6 @@
-from disposable import Disposable, SingleAssignmentDisposable
-from observable import Producer
-from subject import Subject
+from rx.disposable import Disposable, SingleAssignmentDisposable
+from rx.observable import Producer
+from rx.subject import Subject
 from threading import RLock
 
 class EventProducer(Producer):

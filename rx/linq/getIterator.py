@@ -1,6 +1,7 @@
-from disposable import SingleAssignmentDisposable
-from observer import Observer
+from rx.disposable import SingleAssignmentDisposable
+from rx.observer import Observer
 from .sink import Sink
+import logging
 from queue import Empty, Queue
 from threading import Semaphore
 
@@ -20,7 +21,7 @@ class GetIterator(Observer):
     return self
 
   def onNext(self, value):
-    self.queue.put_nowait(value)
+    self.queue.put(value)
     self.gate.release()
 
   def onError(self, exception):

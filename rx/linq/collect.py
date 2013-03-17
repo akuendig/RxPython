@@ -1,4 +1,4 @@
-from observable import PushToPullAdapter
+from rx.observable import PushToPullAdapter
 from .sink import PushToPullSink
 from threading import RLock
 

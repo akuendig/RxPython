@@ -1,5 +1,5 @@
-from disposable import Disposable, CompositeDisposable
-from observable import Producer, ConnectableObservable
+from rx.disposable import Disposable, CompositeDisposable
+from rx.observable import Producer, ConnectableObservable
 from .sink import Sink
 
 

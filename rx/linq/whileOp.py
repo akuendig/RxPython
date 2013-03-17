@@ -1,4 +1,4 @@
-from observable import Producer
+from rx.observable import Producer
 from .sink import ConcatSink
 
 

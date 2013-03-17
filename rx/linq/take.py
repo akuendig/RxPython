@@ -1,5 +1,5 @@
-from disposable import CompositeDisposable
-from observable import Producer
+from rx.disposable import CompositeDisposable
+from rx.observable import Producer
 from .sink import Sink
 from threading import RLock
 

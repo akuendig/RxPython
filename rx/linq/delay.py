@@ -1,8 +1,8 @@
-from disposable import CompositeDisposable, Disposable, SerialDisposable, SingleAssignmentDisposable
-from observable import Producer
-from observer import Observer
-from internal import Struct
-from scheduler import Scheduler
+from rx.disposable import CompositeDisposable, Disposable, SerialDisposable, SingleAssignmentDisposable
+from rx.observable import Producer
+from rx.observer import Observer
+from rx.internal import Struct
+from rx.scheduler import Scheduler
 from .sink import Sink
 from threading import Event, RLock, Semaphore
 

@@ -1,7 +1,13 @@
-from disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
-from observer import Observer, AutoDetachObserver
-from scheduler import Scheduler
+from rx.disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
+from rx.observer import Observer, AutoDetachObserver
+from rx.scheduler import Scheduler
 from threading import RLock
+
+##########################################################
+#                 !! Important note !!                   #
+# import rx.linq is done at the end to avoid a circular  #
+# depency. rx.linq attaches all operators to Observable. #
+##########################################################
 
 class Observable(object):
   """Provides all extension methods to Observable"""
@@ -152,14 +158,14 @@ class Producer(Observable):
     def assignSink(s):
       sink.disposable = s
 
-    def scheduled(_, me):
-      subscription.disposable = me.run(observer, subscription, assignSink)
+    def scheduled():
+      subscription.disposable = self.run(observer, subscription, assignSink)
       return Disposable.empty()
 
     if Scheduler.currentThread.isScheduleRequired():
-      Scheduler.currentThread.schedule(self, scheduled)
+      Scheduler.currentThread.schedule(scheduled)
     else:
-      scheduled(None, self)
+      scheduled()
 
     return d
 
@@ -178,3 +184,7 @@ class PushToPullAdapter(object):
 
   def run(self, subscription):
     raise NotImplementedError()
+
+
+# import linq to add all extension methods
+import rx.linq

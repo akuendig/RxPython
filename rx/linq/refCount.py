@@ -1,5 +1,5 @@
-from disposable import Disposable
-from observable import Producer
+from rx.disposable import Disposable
+from rx.observable import Producer
 from .sink import Sink
 from threading import RLock
 

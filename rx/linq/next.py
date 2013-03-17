@@ -1,5 +1,5 @@
-from notification import Notification
-from observable import PushToPullAdapter
+from rx.notification import Notification
+from rx.observable import PushToPullAdapter
 from .sink import PushToPullSink
 from threading import RLock, BoundedSemaphore
 

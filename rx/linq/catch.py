@@ -1,6 +1,6 @@
-from disposable import SerialDisposable, SingleAssignmentDisposable
-from observable import Producer
-from observer import Observer
+from rx.disposable import SerialDisposable, SingleAssignmentDisposable
+from rx.observable import Producer
+from rx.observer import Observer
 from .sink import Sink, TailRecursiveSink
 
 

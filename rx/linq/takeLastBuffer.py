@@ -1,6 +1,6 @@
-from disposable import CompositeDisposable, SingleAssignmentDisposable
-from internal import Struct
-from observable import Producer
+from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
+from rx.internal import Struct
+from rx.observable import Producer
 from .sink import Sink
 from collections import deque
 

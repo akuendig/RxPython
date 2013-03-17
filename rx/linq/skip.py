@@ -1,6 +1,6 @@
-from concurrency import Atomic
-from disposable import CompositeDisposable
-from observable import Producer
+from rx.concurrency import Atomic
+from rx.disposable import CompositeDisposable
+from rx.observable import Producer
 from .sink import Sink
 
 

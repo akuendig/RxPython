@@ -1,9 +1,9 @@
-from disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
-from notification import Notification
-from concurrency import Atomic
-from internal import noop, defaultError, raiseIsDisposed
-from threading import RLock, Semaphore
+from rx.concurrency import Atomic
+from rx.disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
+from rx.internal import noop, defaultError, raiseIsDisposed
+from rx.notification import Notification
 from queue import Queue
+from threading import RLock, Semaphore
 
 class Observer(object):
   """Represents thi IObserver Interface.

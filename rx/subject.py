@@ -1,10 +1,10 @@
+from rx.concurrency import Atomic
+from rx.disposable import Disposable
+from rx.internal import errorIfDisposed, Struct
+from rx.observable import Observable
+from rx.observer import Observer, ScheduledObserver
+from rx.scheduler import currentThreadScheduler
 import sys
-from observable import Observable
-from observer import Observer, ScheduledObserver
-from disposable import Disposable
-from scheduler import currentThreadScheduler
-from concurrency import Atomic
-from internal import errorIfDisposed, Struct
 
 class Subject(Observable, Observer):
   def __init__(self):

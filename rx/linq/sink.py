@@ -1,7 +1,7 @@
-from observer import Observer
-from concurrency import Atomic
-from disposable import AsyncLock, Disposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
-from scheduler import Scheduler
+from rx.concurrency import Atomic
+from rx.disposable import AsyncLock, Disposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
+from rx.observer import Observer
+from rx.scheduler import Scheduler
 
 
 class Sink(object):

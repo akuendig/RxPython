@@ -1,4 +1,4 @@
-from observable import Producer
+from rx.observable import Producer
 from .sink import Sink
 
 
@@ -9,7 +9,7 @@ class Contains(Producer):
     self.equals = equals
 
   def run(self, observer, cancel, setSink):
-    sink = self.Sink(observer, cancel)
+    sink = self.Sink(self, observer, cancel)
     setSink(sink)
     return self.source.subscribeSafe(sink)
 

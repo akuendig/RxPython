@@ -1,6 +1,6 @@
-from disposable import CompositeDisposable, RefCountDisposable
-from observable import GroupObservable, Producer
-from subject import Subject
+from rx.disposable import CompositeDisposable, RefCountDisposable
+from rx.observable import GroupObservable, Producer
+from rx.subject import Subject
 from .sink import Sink
 
 

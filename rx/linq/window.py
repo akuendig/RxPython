@@ -1,9 +1,9 @@
-from observable import Producer
-from subject import Subject
+from rx.disposable import Disposable, CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable, SerialDisposable
+from rx.internal import Struct
+from rx.observable import Producer
+from rx.subject import Subject
 from .addRef import AddRef
 from .sink import Sink
-from disposable import Disposable, CompositeDisposable, RefCountDisposable, SingleAssignmentDisposable, SerialDisposable
-from internal import Struct
 from threading import RLock
 from queue import Queue
 

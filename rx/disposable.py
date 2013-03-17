@@ -1,5 +1,4 @@
-from concurrency import Atomic
-from threading import RLock
+from rx.concurrency import Atomic
 from collections import deque
 
 class Disposable:
@@ -171,7 +170,7 @@ class RefCountDisposable(Cancelable):
   def getDisposable(self):
     with self.lock:
       if self.isDisposed:
-        return Disposable.empty
+        return Disposable.empty()
       else:
         return self.InnerDisposable(self)
 
@@ -261,7 +260,7 @@ class SingleAssignmentDisposable(Cancelable):
 
   def __init__(self):
     super(SingleAssignmentDisposable, self).__init__()
-    self.current = Atomic(None)
+    self.current = None
 
   def disposable():
     def fget(self):
@@ -271,7 +270,8 @@ class SingleAssignmentDisposable(Cancelable):
         else:
           return self.current
     def fset(self, value):
-      old = self.current.exchange(value)
+      old = self.current
+      self.current = value
 
       if old != None: raise Exception("Disposable has already been assigned")
 
@@ -285,8 +285,6 @@ class SingleAssignmentDisposable(Cancelable):
       if self.current != None:
         self.current.dispose()
 
-      self.current = None
-
 
 class AsyncLock(Disposable):
   def __init__(self):
@@ -295,7 +293,6 @@ class AsyncLock(Disposable):
     self.queue = deque()
     self.isAcquired = False
     self.hasFaulted = False
-    self.lock = RLock()
 
   def wait(self, action):
     isOwner = False

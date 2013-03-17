@@ -1,5 +1,5 @@
-from observable import Producer
-from observer import ObserveOnObserver
+from rx.observable import Producer
+from rx.observer import ObserveOnObserver
 
 
 class ObserveOn(Producer):

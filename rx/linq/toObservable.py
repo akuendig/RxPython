@@ -1,6 +1,6 @@
-from disposable import BooleanDisposable, Disposable
-from internal import Struct
-from observable import Producer
+from rx.disposable import BooleanDisposable, Disposable
+from rx.internal import Struct
+from rx.observable import Producer
 from .sink import Sink
 
 
@@ -48,9 +48,11 @@ class ToObservable(Producer):
       try:
         current = next(state.it)
       except StopIteration:
-        hasNext = False
+        pass
       except Exception as e:
         ex = e
+      else:
+        hasNext = True
 
       if ex != None:
         self.observer.onError(ex)
@@ -73,9 +75,11 @@ class ToObservable(Producer):
         try:
           current = next(it)
         except StopIteration:
-          hasNext = False
+          pass
         except Exception as e:
           ex = e
+        else:
+          hasNext = True
 
         if ex != None:
           self.observer.onError(ex)
