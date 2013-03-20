@@ -1,10 +1,10 @@
 from rx.concurrency import Atomic
-from rx.disposable import AsyncLock, Disposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
-from rx.observer import Observer
+from rx.disposable import AsyncLock, Cancelable, Disposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
+from rx.observer import NoopObserver, Observer
 from rx.scheduler import Scheduler
 
 
-class Sink(object):
+class Sink(Disposable):
   """Base class for implementation of query operators, providing
   a lightweight sink that can be disposed to mute the outgoing observer."""
 
@@ -14,7 +14,7 @@ class Sink(object):
     self.cancel = Atomic(cancel)
 
   def dispose(self):
-    self.observer = Observer.noop
+    self.observer = NoopObserver.instance
 
     cancel = self.cancel.exchange(None)
 
@@ -149,7 +149,21 @@ class TailRecursiveSink(Sink):
     self.dispose()
 
 
-class PushToPullSink(Observer):
+class ConcatSink(TailRecursiveSink):
+  def __init__(self, observer, cancel):
+    super(ConcatSink, self).__init__(observer, cancel)
+
+  def extract(self, source):
+    if hasattr(source, 'getSources'):
+      return source.getSources()
+    else:
+      return None
+
+  def onCompleted(self):
+    self.recurse()
+
+
+class PushToPullSink(Cancelable, Observer):
   def __init__(self, subscription):
     super(PushToPullSink, self).__init__()
     self.subscription = subscription
@@ -164,24 +178,11 @@ class PushToPullSink(Observer):
         return self.current
       else:
         self.iteratorDone = True
-        self.subscription.dispose()
+        self.dispose()
 
     raise StopIteration()
 
   def dispose(self):
-    self.subscription.dispose()
-
-
-class ConcatSink(TailRecursiveSink):
-  def __init__(self, observer, cancel):
-    super(ConcatSink, self).__init__(observer, cancel)
-
-  def extract(self, source):
-    if hasattr(source, 'getSources'):
-      return source.getSources()
-    else:
-      return None
-
-  def onCompleted(self):
-    self.recurse()
+    if not self._isDisposed.exchange(True):
+      self.subscription.dispose()
 

@@ -39,5 +39,7 @@ class Max(Producer):
     def onCompleted(self):
       if not self.hasValue:
         self.observer.onError(Exception("Invalid operation, no elements in observable"))
-      self.observer.onCompleted()
+      else:
+        self.observer.onNext(self.lastValue)
+        self.observer.onCompleted()
       self.dispose()

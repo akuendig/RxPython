@@ -34,6 +34,9 @@ class GetIterator(Observer):
     self.subscription.dispose()
     self.gate.release()
 
+  def __iter__(self):
+    return self
+
   def __next__(self):
     self.gate.acquire()
 

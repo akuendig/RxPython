@@ -48,7 +48,7 @@ class MaxBy(Producer):
         self.list.clear()
 
       if comparison >= 0:
-        self.list.appen(value)
+        self.list.append(value)
 
     def onError(self, exception):
       self.observer.onError(exception)

@@ -3,10 +3,11 @@ from .sink import Sink
 
 
 class SingleAsync(Producer):
-  def __init__(self, source, predicate, throwOnEmpty):
+  def __init__(self, source, predicate, throwOnEmpty, defaultValue):
     self.source = source
     self.predicate = predicate
     self.throwOnEmpty = throwOnEmpty
+    self.defaultValue = defaultValue
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)
@@ -17,7 +18,7 @@ class SingleAsync(Producer):
     def __init__(self, parent, observer, cancel):
       super(SingleAsync.Sink, self).__init__(observer, cancel)
       self.parent = parent
-      self.value = None
+      self.value = self.parent.defaultValue
       self.hasValue = False
 
     def onNext(self, value):

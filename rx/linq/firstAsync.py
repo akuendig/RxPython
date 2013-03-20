@@ -3,10 +3,11 @@ from .sink import Sink
 
 
 class FirstAsync(Producer):
-  def __init__(self, source, predicate, throwOnEmpty):
+  def __init__(self, source, predicate, throwOnEmpty, defaultValue):
     self.source = source
     self.predicate = predicate
     self.throwOnEmpty = throwOnEmpty
+    self.defaultValue = defaultValue
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)
@@ -38,7 +39,7 @@ class FirstAsync(Producer):
       if self.parent.throwOnEmpty:
         self.observer.onError(Exception("Invalid operation, no elements in observable"))
       else:
-        self.observer.onNext(None)
+        self.observer.onNext(self.parent.defaultValue)
         self.observer.onCompleted()
 
       self.dispose()

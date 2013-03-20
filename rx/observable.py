@@ -1,4 +1,5 @@
 from rx.disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable
+from rx.internal import noop
 from rx.observer import Observer, AutoDetachObserver
 from rx.scheduler import Scheduler
 from threading import RLock
@@ -16,10 +17,10 @@ class Observable(object):
   def create(subscribe):
     return AnonymousObservable(subscribe)
 
-  def subscribe(self, observerOrOnNext=None, onError=None, onComplete=None):
+  def subscribe(self, observerOrOnNext=noop, onError=noop, onComplete=noop):
     observer = observerOrOnNext
 
-    if observerOrOnNext == None or hasattr(observerOrOnNext, '__call__'):
+    if observerOrOnNext == None or callable(observerOrOnNext):
       observer = Observer.create(observerOrOnNext, onError, onComplete)
 
     return self.subscribeCore(observer)
@@ -45,7 +46,7 @@ class Observable(object):
 
 class ObservableBase(Observable):
 
-  def subscribe(self, observerOrOnNext=None, onError=None, onComplete=None):
+  def subscribe(self, observerOrOnNext=noop, onError=noop, onComplete=noop):
     observer = observerOrOnNext
 
     if observerOrOnNext == None or hasattr(observerOrOnNext, '__call__'):

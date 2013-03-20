@@ -20,14 +20,23 @@ class ToDictionary(Producer):
       self.dictionary = {}
 
     def onNext(self, value):
+      key = None
+      element = None
+
       try:
-        self.dictionary.add(
-          self.parent.keySelector(value),
-          self.parent.elementSelector(value)
-        )
+        key = self.parent.keySelector(value)
+        element = self.parent.elementSelector(value)
       except Exception as e:
         self.observer.onError(e)
         self.dispose()
+        return
+
+      if key in self.dictionary:
+        self.observer.onError(Exception("Duplicate key %s"%key))
+        self.dispose()
+        return
+
+      self.dictionary[key] = element
 
     def onError(self, exception):
       self.observer.onError(exception)

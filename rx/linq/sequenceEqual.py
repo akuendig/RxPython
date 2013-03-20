@@ -1,5 +1,5 @@
 from rx.disposable import CompositeDisposable
-from rx.observable import Producer
+from rx.observable import Observable, Producer
 from rx.observer import Observer
 from .sink import Sink
 from collections import deque
@@ -7,22 +7,20 @@ from threading import RLock
 
 
 class SequenceEqual(Producer):
-  def __init__(self, first, second, equals):
-    self.first = first
-    self.second = second
+  def __init__(self, left, right, equals):
+    self.left = left
+    self.right = right
     self.equals = equals
 
   def run(self, observer, cancel, setSink):
-    try:
-      iter(self.second)
-    except TypeError:
+    if isinstance(self.right, Observable):
       sink = self.Sink(self, observer, cancel)
       setSink(sink)
-      return self.source.subscribeSafe(sink)
+      return sink.run()
     else:
       sink = self.IterableSink(self, observer, cancel)
       setSink(sink)
-      return self.source.subscribeSafe(sink)
+      return sink.run()
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
@@ -37,11 +35,11 @@ class SequenceEqual(Producer):
       self.qr = deque()
 
       return CompositeDisposable(
-        self.parent.first.subscribeSafe(self.F(self)),
-        self.parent.second.subscribeSafe(self.S(self))
+        self.parent.left.subscribeSafe(self.L(self)),
+        self.parent.right.subscribeSafe(self.R(self))
       )
 
-    class F(Observer):
+    class L(Observer):
       def __init__(self, parent):
         self.parent = parent
 
@@ -86,9 +84,9 @@ class SequenceEqual(Producer):
               self.parent.observer.onNext(True)
               self.parent.observer.onCompleted()
               self.parent.dispose()
-    #end F
+    #end L
 
-    class S(Observer):
+    class R(Observer):
       def __init__(self, parent):
         self.parent = parent
 
@@ -133,7 +131,7 @@ class SequenceEqual(Producer):
               self.parent.observer.onNext(True)
               self.parent.observer.onCompleted()
               self.parent.dispose()
-    #end S
+    #end R
   #end Sink
 
   class IterableSink(Sink):
@@ -142,9 +140,9 @@ class SequenceEqual(Producer):
       self.parent = parent
 
     def run(self):
-      self.iterator = iter(self.parent.second)
+      self.iterator = iter(self.parent.right)
 
-      return self.parent.first.subscribeSafe(self)
+      return self.parent.left.subscribeSafe(self)
 
     def onNext(self, value):
       equal = False

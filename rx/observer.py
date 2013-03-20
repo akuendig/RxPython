@@ -1,11 +1,11 @@
 from rx.concurrency import Atomic
-from rx.disposable import Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
-from rx.internal import noop, defaultError, raiseIsDisposed
+from rx.disposable import Cancelable, Disposable, SingleAssignmentDisposable, SerialDisposable, CompositeDisposable
+from rx.internal import noop, defaultError
 from rx.notification import Notification
-from queue import Queue
+from queue import Empty, Queue
 from threading import RLock, Semaphore
 
-class Observer(object):
+class Observer(Disposable):
   """Represents thi IObserver Interface.
   Has some static helper methods attached"""
 
@@ -50,15 +50,15 @@ class Observer(object):
     raise NotImplementedError()
 
 
-class ObserverBase(Observer):
+class ObserverBase(Cancelable, Observer):
   """Abstract base class for implementations
   of the IObserver interface.
   This base class enforces the grammar of observers
   where OnError and OnCompleted are terminal messages."""
 
   def __init__(self):
-    self.isStopped = Atomic(False)
-    self.lock = self.isStopped.lock
+    super(ObserverBase, self).__init__()
+    self.isStopped = Atomic(False, self.lock)
 
   def onNext(self, value):
     with self.lock:
@@ -251,7 +251,7 @@ class ScheduledObserver(ObserverBase):
         self.dispatcherJob = self.scheduler.scheduleLongRunning(self.dispatch)
         self.disposable.disposable = CompositeDisposable(
           self.dispatcherJob,
-          Disposable.create(lambda: self.dispatcherEvent.release())
+          Disposable.create(self.dispatcherEvent.release)
         )
 
   def dispatch(self, cancel):
@@ -262,14 +262,12 @@ class ScheduledObserver(ObserverBase):
         return
 
       while True:
-        next = self.queue.get_nowait()
+        next = self.queue.get()
 
         try:
           self.observer.onNext(next)
         except Exception as e:
-          while self.queue.get_nowait() != None:
-            pass
-
+          self.clearQueue()
           raise e
 
         self.dispatcherEvent.acquire()
@@ -290,14 +288,13 @@ class ScheduledObserver(ObserverBase):
         return
 
   def ensureActive(self, n = 1):
-    try:
-      if n > 0:
-        self.ensureDispatcher()
+    if self.scheduler.isLongRunning:
+      while n > 0:
+        self.dispatcherEvent.release()
+        n -= 1
 
-        while n > 0:
-          self.dispatcherEvent.release()
-          n -= 1
-    except NotImplementedError:
+        self.ensureDispatcher()
+    else:
       self.ensureActiveSlow()
 
   def ensureActiveSlow(self):
@@ -316,7 +313,7 @@ class ScheduledObserver(ObserverBase):
         return
       elif (
           (old == ScheduledObserver.PENDING or old == ScheduledObserver.RUNNING) and
-          self._casState(ScheduledObserver.PENDING, ScheduledObserver.RUNNING) == ScheduledObserver.RUNNING
+          self.state.compareExchange(ScheduledObserver.PENDING, ScheduledObserver.RUNNING) == ScheduledObserver.RUNNING
         ):
         break
 
@@ -324,10 +321,13 @@ class ScheduledObserver(ObserverBase):
       self.disposable = self.scheduler.scheduleRecursiveWithState(None, self.run)
 
   def run(self, state, continuation):
-    next = self.queue.get_nowait()
+    next = None
 
     while True:
-      next = self.queue.get_nowait()
+      try:
+        next = self.queue.get_nowait()
+      except Empty:
+        next = None
 
       if next != None:
         break
@@ -367,6 +367,7 @@ class ScheduledObserver(ObserverBase):
       # assert(old == ScheduledObserver.PENDING)
 
       self.state.value = ScheduledObserver.RUNNING
+    #end while
 
     # we found an item, so next != None
     self.state.value = ScheduledObserver.RUNNING
@@ -375,9 +376,7 @@ class ScheduledObserver(ObserverBase):
       self.observer.onNext(next)
     except Exception as e:
       self.state.value = ScheduledObserver.FAULTED
-
-      while self.queue.get_nowait() != None:
-        pass
+      self.clearQueue()
 
       raise e
 
@@ -393,8 +392,15 @@ class ScheduledObserver(ObserverBase):
   def onCompletedCore(self):
     self.completed = True
 
+  def clearQueue(self):
+    try:
+      while True:
+        self.queue.get()
+    except Empty:
+      pass
+
   def dispose(self):
-    super(AutoDetachObserver, self).dispose()
+    super(ScheduledObserver, self).dispose()
     self.disposable.dispose()
 
 
@@ -443,12 +449,72 @@ class SynchronizedObserver(ObserverBase):
       self.observer.onCompleted()
 
 
-noopObserver = Observer.create(noop, noop, noop)
-Observer.noop = noopObserver
+class ListObserver(Observer):
+  def __init__(self, observers):
+    super(ListObserver, self).__init__()
+    self.observers = observers
 
-doneObserver = Observer.create(noop, noop, noop)
-doneObserver.exception = None
-Observer.done = doneObserver
+  def onNext(self, value):
+    for observer in self.observers:
+      observer.onNext(value)
 
-disposedObserver = Observer.create(raiseIsDisposed, raiseIsDisposed, raiseIsDisposed)
-Observer.disposed = disposedObserver
+  def onError(self, exception):
+    for observer in self.observers:
+      observer.onError(exception)
+
+  def onCompleted(self):
+    for observer in self.observers:
+      observer.onCompleted()
+
+  def add(self, observer):
+    return ListObserver(self.observers + (observer,))
+
+  def remove(self, observer):
+    if observer not in self.observers:
+      return self
+
+    index = self.observers.index(observer)
+    newObservers = self.observers[0:index] + self.observers[index+1:]
+
+    return ListObserver(newObservers)
+
+
+class NoopObserver(Observer):
+  def onNext(self, value):
+    pass
+
+  def onError(self, exception):
+    pass
+
+  def onCompleted(self):
+    pass
+
+
+class DisposedObserver(Observer):
+  def onNext(self, value):
+    raise Exception("Object has been disposed")
+
+  def onError(self, exception):
+    raise Exception("Object has been disposed")
+
+  def onCompleted(self):
+    raise Exception("Object has been disposed")
+
+
+class DoneObserver(Observer):
+  def __init__(self, exception=None):
+    super(DoneObserver, self).__init__()
+    self.exception = exception
+
+  def onNext(self, value):
+    pass
+
+  def onError(self, exception):
+    pass
+
+  def onCompleted(self):
+    pass
+
+NoopObserver.instance = NoopObserver()
+DisposedObserver.instance = DisposedObserver()
+DoneObserver.completed = DoneObserver()

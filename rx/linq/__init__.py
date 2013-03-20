@@ -136,21 +136,21 @@ Observable.elementAt = lambda self, index: ElementAt(self, index, True)
 Observable.elementAtOrDefault = lambda self, index: ElementAt(self, index, False)
 
 def firstAsync(self, predicate=truePredicate):
-  return FirstAsync(self, predicate, True)
+  return FirstAsync(self, predicate, True, None)
 Observable.firstAsync = firstAsync
 
-def firstAsyncOrDefault(self, predicate=truePredicate):
-  return FirstAsync(self, predicate, False)
+def firstAsyncOrDefault(self, predicate=truePredicate, default=None):
+  return FirstAsync(self, predicate, False, default)
 Observable.firstAsyncOrDefault = firstAsyncOrDefault
 
 Observable.isEmpty = lambda self: IsEmpty(self)
 
 def lastAsync(self, predicate=truePredicate):
-  return LastAsync(self, predicate, True)
+  return LastAsync(self, predicate, True, None)
 Observable.lastAsync = lastAsync
 
-def lastAsyncOrDefault(self, predicate=truePredicate):
-  return LastAsync(self, predicate, False)
+def lastAsyncOrDefault(self, predicate=truePredicate, default=None):
+  return LastAsync(self, predicate, False, default)
 Observable.lastAsyncOrDefault = lastAsyncOrDefault
 
 def maxOp(self, compareTo=defaultCompareTo):
@@ -169,16 +169,16 @@ def minBy(self, keySelector, compareTo=defaultCompareTo):
   return MinBy(self, keySelector, compareTo)
 Observable.minBy = minBy
 
-def sequenceEqual(self, second, compareTo=defaultCompareTo):
+def sequenceEqual(self, second, compareTo=defaultComparer):
   return SequenceEqual(self, second, compareTo)
 Observable.sequenceEqual = sequenceEqual
 
 def singleAsync(self, predicate=truePredicate):
-  return SingleAsync(self, predicate, True)
+  return SingleAsync(self, predicate, True, None)
 Observable.singleAsync = singleAsync
 
-def singleAsyncOrDefault(self, predicate=truePredicate):
-  return SingleAsync(self, predicate, False)
+def singleAsyncOrDefault(self, predicate=truePredicate, default=None):
+  return SingleAsync(self, predicate, False, default)
 Observable.singleAsyncOrDefault = singleAsyncOrDefault
 
 def sumOp(self, selector=identity):
@@ -251,7 +251,7 @@ def collect(self, getInitialCollector, merge, getNewCollector=None):
     return Collect(self, getInitialCollector, merge, getNewCollector)
 Observable.collect = collect
 
-def firstOrDefaultInternal(source, throwOnEmpty):
+def firstOrDefaultInternal(source, throwOnEmpty, default):
   state = Struct(
     value=None,
     hasValue=False,
@@ -278,23 +278,26 @@ def firstOrDefaultInternal(source, throwOnEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwOnEmpty and not state.hasValue:
-    raise Exception("Invalid operation, no elements in observable")
+  if not state.hasValue:
+    if throwOnEmpty:
+      raise Exception("Invalid operation, no elements in observable")
+    else:
+      return default
 
   return state.value
 
 def first(self, predicate=None):
   if predicate == None:
-    return firstOrDefaultInternal(self, True)
+    return firstOrDefaultInternal(self, True, None)
   else:
-    return first(Where(self, predicate))
+    return first(Where(self, predicate, False))
 Observable.first = first
 
-def firstOrDefault(self, predicate=None):
+def firstOrDefault(self, predicate=None, default=None):
   if predicate == None:
-    return firstOrDefaultInternal(self, False)
+    return firstOrDefaultInternal(self, False, default)
   else:
-    return firstOrDefault(Where(self, predicate))
+    return firstOrDefault(Where(self, predicate, False), default=default)
 Observable.firstOrDefault = firstOrDefault
 
 def forEach(self, onNext):
@@ -325,7 +328,7 @@ def getIterator(self):
 Observable.getIterator = getIterator
 Observable.__iter__ = getIterator
 
-def lastOrDefaultInternal(source, throwOnEmpty):
+def lastOrDefaultInternal(source, throwOnEmpty, default):
   state = Struct(
     value=None,
     hasValue=False,
@@ -350,23 +353,26 @@ def lastOrDefaultInternal(source, throwOnEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwOnEmpty and not state.hasValue:
-    raise Exception("Invalid operation, no elements in observable")
+  if  not state.hasValue:
+    if throwOnEmpty:
+      raise Exception("Invalid operation, no elements in observable")
+    else:
+      return default
 
   return state.value
 
 def last(self, predicate=None):
   if predicate == None:
-    return lastOrDefaultInternal(self, True)
+    return lastOrDefaultInternal(self, True, None)
   else:
-    return last(Where(self, predicate))
+    return last(Where(self, predicate, False))
 Observable.last = last
 
-def lastOrDefault(self, predicate=None):
+def lastOrDefault(self, predicate=None, default=None):
   if predicate == None:
-    return lastOrDefaultInternal(self, False)
+    return lastOrDefaultInternal(self, False, default)
   else:
-    return lastOrDefault(Where(self, predicate))
+    return lastOrDefault(Where(self, predicate, False), default=default)
 Observable.lastOrDefault = lastOrDefault
 
 Observable.latest = lambda self: Latest(self)
@@ -376,7 +382,7 @@ Observable.mostRecent = lambda self: MostRecent(self)
 Observable.next = lambda self: Next(self)
 
 
-def singleOrDefaultInternal(source, throwOnEmpty):
+def singleOrDefaultInternal(source, throwOnEmpty, default):
   state = Struct(
     value=None,
     hasValue=False,
@@ -405,23 +411,26 @@ def singleOrDefaultInternal(source, throwOnEmpty):
   if state.ex != None:
     raise state.ex
 
-  if throwOnEmpty and not state.hasValue:
-    raise Exception("Invalid operation, no elements in observable")
+  if  not state.hasValue:
+    if throwOnEmpty:
+      raise Exception("Invalid operation, no elements in observable")
+    else:
+      return default
 
   return state.value
 
 def single(self, predicate=None):
   if predicate == None:
-    return singleOrDefaultInternal(self, True)
+    return singleOrDefaultInternal(self, True, None)
   else:
-    return single(Where(self, predicate))
+    return single(Where(self, predicate), False)
 Observable.single = single
 
-def singleOrDefault(self, predicate=None):
+def singleOrDefault(self, predicate=None, default=None):
   if predicate == None:
-    return singleOrDefaultInternal(self, False)
+    return singleOrDefaultInternal(self, False, default)
   else:
-    return singleOrDefault(Where(self, predicate))
+    return singleOrDefault(Where(self, predicate, False), default=default)
 Observable.singleOrDefault = singleOrDefault
 
 Observable.wait = last

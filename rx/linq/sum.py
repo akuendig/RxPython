@@ -12,7 +12,7 @@ class Sum(Producer):
     return self.source.subscribeSafe(sink)
 
   class Sink(Sink):
-    def __init__(self, parent, observer, cancel):
+    def __init__(self, observer, cancel):
       super(Sum.Sink, self).__init__(observer, cancel)
       self.sum = 0
 

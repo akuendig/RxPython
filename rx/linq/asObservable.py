@@ -3,9 +3,8 @@ from .sink import Sink
 
 
 class AsObservable(Producer):
-  def __init__(self, source, predicate):
+  def __init__(self, source):
     self.source = source
-    self.predicate = predicate
 
   def omega(self):
     return self

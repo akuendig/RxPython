@@ -22,11 +22,11 @@ class ForEach(Producer):
     def onError(self, exception):
       if not self.stopped.exchange(True):
         self.exception = exception
-        self.done()
+        self.doneAction()
 
     def onCompleted(self):
       if not self.stopped.exchange(True):
-        self.done()
+        self.doneAction()
 
   class EnumeratingSink(Observer):
     def __init__(self, onNext, done):
@@ -35,6 +35,7 @@ class ForEach(Producer):
 
       self.index = 0
       self.stopped = Atomic(False)
+      self.exception = None
 
     def onNext(self, value):
       if not self.stopped.value:
@@ -47,8 +48,8 @@ class ForEach(Producer):
     def onError(self, exception):
       if not self.stopped.exchange(True):
         self.exception = exception
-        self.done()
+        self.doneAction()
 
     def onCompleted(self):
       if not self.stopped.exchange(True):
-        self.done()
+        self.doneAction()

@@ -15,7 +15,7 @@ class Disposable:
 
   @staticmethod
   def create(action):
-    return Disposable(action)
+    return AnonymouseDisposable(action)
 
   @staticmethod
   def empty():
@@ -67,7 +67,9 @@ class CompositeDisposable(Cancelable):
   def __init__(self, first = None, *rest):
     super(CompositeDisposable, self).__init__()
 
-    if first != None and (isinstance(first, list) or isinstance(first, tuple)):
+    if first == None:
+      self.disposables = []
+    elif isinstance(first, list) or isinstance(first, tuple):
       self.disposables = list(first)
     else:
       self.disposables = [first] + list(rest)
