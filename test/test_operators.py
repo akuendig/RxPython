@@ -5,6 +5,7 @@ from rx.disposable import Disposable
 from rx.internal import Struct
 from rx.notification import Notification
 from rx.observable import Observable
+from rx.observer import Observer
 from rx.subject import Subject
 
 def rep(value, count):
@@ -18,6 +19,27 @@ def OnError(exception):
 
 def OnComplete():
   return Notification.createOnCompleted()
+
+class Recorder(Observer):
+  def __init__(self, source):
+    super(Recorder, self).__init__()
+    self.source = source
+    self.isStopped = False
+    self.messages = []
+
+  def onNext(self, value):
+    assert not self.isStopped
+    self.messages.append(value)
+
+  def onError(self, exception):
+    raise exception
+
+  def onCompleted(self):
+    self.isStopped = True
+
+  def subscribe(self):
+    return self.source.materialize().subscribe(self)
+
 
 class ReactiveTest(unittest.TestCase):
   def assertHasMessages(self, observable, *messages):
@@ -721,6 +743,28 @@ class TestImperative(ReactiveTest):
     )
 
 
+class TestMultiple(ReactiveTest):
+  def test_amb(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    r = Recorder(s1.amb(s2))
+
+    with r.subscribe():
+      s1.onNext(4)
+      s2.onNext(5)
+      s1.onNext(6)
+      s1.onCompleted()
+
+    self.assertSequenceEqual([
+        OnNext(4),
+        OnNext(6),
+        OnComplete()
+      ],
+      r.messages,
+      "amb should subscribe to the first value",
+      list
+    )
 
 
 

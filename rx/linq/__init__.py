@@ -574,6 +574,8 @@ Observable.loop = lambda source, condition: While(source, condition)
 def amb(first, *second):
   for source in second:
     first = Amb(first, source)
+
+  return first
 Observable.amb = amb
 
 # def bufferWithSelector(self, bufferOpeningSelector, bufferClosingSelector):

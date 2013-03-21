@@ -19,20 +19,9 @@ class Amb(Producer):
     setSink(sink)
     return sink.run()
 
-  class AmbObserver(Observer):
-    def onNext(self, value):
-      self.target.onNext(value)
-
-    def onError(self, exception):
-      self.target.onError(exception)
-      self.disposable.dispose()
-
-    def onCompleted(self):
-      self.target.onCompleted()
-      self.disposable.dispose()
-
   class DecisionObserver(Observer):
     def __init__(self, parent, gate, me, subscription, otherSubscription, observer):
+      super(Amb.DecisionObserver, self).__init__()
       self.parent = parent
       self.gate = gate
       self.me = me
@@ -74,6 +63,24 @@ class Amb(Producer):
         if self.parent.choice == self.me:
           self.parent.observer.onCompleted()
           self.parent.dispose()
+  #end DecisionObserver
+
+  class AmbObserver(Observer):
+    def __init__(self, target):
+      super(Amb.AmbObserver, self).__init__()
+      self.target = target
+
+    def onNext(self, value):
+      self.target.onNext(value)
+
+    def onError(self, exception):
+      self.target.onError(exception)
+      self.disposable.dispose()
+
+    def onCompleted(self):
+      self.target.onCompleted()
+      self.disposable.dispose()
+  #end AmbObserver
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
@@ -88,13 +95,13 @@ class Amb(Producer):
 
       gate = RLock()
 
-      lo = self.AmbObserver()
+      lo = Amb.AmbObserver(self)
       lo.disposable = d
-      lo.target = self.DecisionObserver(self, gate, Amb.LEFT, ls, rs, lo)
+      lo.target = Amb.DecisionObserver(self, gate, Amb.LEFT, ls, rs, lo)
 
-      ro = self.AmbObserver()
+      ro = Amb.AmbObserver(self)
       ro.disposable = d
-      ro.target = self.DecisionObserver(self, gate, Amb.RIGHT, rs, ls, ro)
+      ro.target = Amb.DecisionObserver(self, gate, Amb.RIGHT, rs, ls, ro)
 
       self.choice = Amb.NEITHER
 
@@ -126,3 +133,5 @@ class Amb(Producer):
       self.observer.onNext(True)
       self.observer.onCompleted()
       self.dispose()
+  #end Sink
+#end Amb
