@@ -4,143 +4,158 @@ import sys
 # from rx.linq import Observable
 from rx.disposable import Disposable
 from rx.internal import Struct
+from rx.notification import Notification
 from rx.observable import Observable
 from rx.subject import Subject
 
 def rep(value, count):
   return Observable.fromIterable([value]*count)
 
+def assertHasMessages(self, observable, *messages):
+  self.assertSequenceEqual(list(messages), list(observable.materialize()))
+
+def OnNext(value):
+  return Notification.createOnNext(value)
+
+def OnError(exception):
+  return Notification.createOnError(exception)
+
+def OnComplete():
+  return Notification.createOnCompleted()
+
 class TestAggregation(unittest.TestCase):
+  assertHasMessages = assertHasMessages
+
   def test_aggregate(self):
     o = rep(5, 4)
-    s = o.aggregate(0, lambda acc, el: acc + el).single()
+    s = o.aggregate(0, lambda acc, el: acc + el).wait()
 
     self.assertEqual(20, s, "Accumulate should yield sum")
 
   def test_all_true(self):
     o = rep(5, 4)
-    a = o.all(lambda x: x == 5).single()
+    a = o.all(lambda x: x == 5).wait()
 
     self.assertTrue(a, "all values should be equal to 5")
 
   def test_any_empty(self):
     o = Observable.empty()
-    a = o.any().single()
+    a = o.any().wait()
 
     self.assertFalse(a, "all values should not be equal to 4")
 
   def test_any_value(self):
     o = rep(5, 4)
-    a = o.any().single()
+    a = o.any().wait()
 
     self.assertTrue(a, "all values should be equal to 5")
 
   def test_any_predicate(self):
     o = rep(5, 4)
-    a = o.any(lambda x: x == 3).single()
+    a = o.any(lambda x: x == 3).wait()
 
     self.assertFalse(a, "all values should not be equal to 3")
 
   def test_average(self):
     o = rep(5, 4)
-    a = o.average().single()
+    a = o.average().wait()
 
     self.assertEqual(5, a, "average sould be 5")
 
   def test_contains_true(self):
     o = rep(5, 4)
-    a = o.contains(5).single()
+    a = o.contains(5).wait()
 
     self.assertTrue(a, "should contain 5")
 
   def test_contains_false(self):
     o = rep(5, 4)
-    a = o.contains(3).single()
+    a = o.contains(3).wait()
 
     self.assertFalse(a, "should not contain 3")
 
   def test_count(self):
     o = rep(5, 4)
-    a = o.count(lambda x: x == 5).single()
+    a = o.count(lambda x: x == 5).wait()
 
     self.assertEqual(4, a, "sequence should contain 4 elements")
 
   def test_first_async(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.firstAsync(lambda x: x == 2).single()
+    a = o.firstAsync(lambda x: x == 2).wait()
 
     self.assertEqual(2, a, "first 2 in sequence should be 2")
 
   def test_first_async_or_default(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.firstAsyncOrDefault(lambda x: x == 5, 7).single()
+    a = o.firstAsyncOrDefault(lambda x: x == 5, 7).wait()
 
     self.assertEqual(7, a, "first 5 sould not be found, 7 sould be returned")
 
   def test_last_async(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.lastAsync().single()
+    a = o.lastAsync().wait()
 
     self.assertEqual(1, a, "last value in sequence should be 1")
 
   def test_last_async_or_default(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.lastAsyncOrDefault(lambda x: x == 5, 7).single()
+    a = o.lastAsyncOrDefault(lambda x: x == 5, 7).wait()
 
     self.assertEqual(7, a, "last 5 sould not be found, 7 sould be returned")
 
   def test_max(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.max().single()
+    a = o.max().wait()
 
     self.assertEqual(3, a, "max value should be 3")
 
   def test_max_by(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.maxBy(lambda x: -x).single()
+    a = o.maxBy(lambda x: -x).wait()
 
     self.assertSequenceEqual([1], a, "max inverse value should be 1")
 
   def test_min(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.min().single()
+    a = o.min().wait()
 
     self.assertEqual(1, a, "min value should be 1")
 
   def test_min_by(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.minBy(lambda x: -x).single()
+    a = o.minBy(lambda x: -x).wait()
 
     self.assertSequenceEqual([3], a, "min inverse value should be 3")
 
   def test_sequence_equal(self):
     o1 = rep(5, 4)
     o2 = rep(5, 4)
-    a = o1.sequenceEqual(o2).single()
+    a = o1.sequenceEqual(o2).wait()
 
     self.assertTrue(a, "sequences should be equal")
 
   def test_single_async(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.singleAsync(lambda x: x == 2).single()
+    a = o.singleAsync(lambda x: x == 2).wait()
 
     self.assertEqual(2, a, "single 2 in sequence should be 2")
 
   def test_single_async_or_default(self):
     o = Observable.fromIterable([3, 2, 1])
-    a = o.singleAsyncOrDefault(lambda x: x == 5, 7).single()
+    a = o.singleAsyncOrDefault(lambda x: x == 5, 7).wait()
 
     self.assertEqual(7, a, "single 5 sould not be found, 7 sould be returned")
 
   def test_sum(self):
     o = rep(5, 4)
-    a = o.sum().single()
+    a = o.sum().wait()
 
     self.assertEqual(20, a, "sum should be 20")
 
   def test_to_list(self):
     o = rep(5, 4)
-    a = o.toList().single()
+    a = o.toList().wait()
 
     self.assertSequenceEqual([5, 5, 5, 5], a, "to list should be [5, 5, 5, 5]", list)
 
@@ -149,7 +164,7 @@ class TestAggregation(unittest.TestCase):
       ('a', 1),
       ('b', 1)
     ])
-    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).single()
+    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).wait()
 
     self.assertEqual({'a': 1, 'b': 1}, a, "dictionary should contain last values for each key")
 
@@ -159,7 +174,7 @@ class TestAggregation(unittest.TestCase):
       ('a', 2),
       ('b', 1)
     ])
-    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).single
+    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).wait
 
     self.assertRaisesRegex(Exception, "Duplicate key", a)
 
@@ -354,11 +369,11 @@ class TestBlocking(unittest.TestCase):
     self.assertSequenceEqual(values, acc, "accumulator should equal values", list)
 
   def test_for_each_enumerate(self):
+    values = [3, 2, 1]
     state = Struct(
       acc=[],
       index=0
     )
-    values = [3, 2, 1]
 
     def it(value, index):
       state.acc.append(value)
@@ -450,6 +465,7 @@ class TestConcurrency(unittest.TestCase):
 
 
 class TestCreation(unittest.TestCase):
+  assertHasMessages = assertHasMessages
 
     # Only use setUp() and tearDown() if necessary
 
@@ -459,13 +475,182 @@ class TestCreation(unittest.TestCase):
     # def tearDown(self):
     #     ... code to execute to clean up after tests ...
 
-  def test_build_from_iterator(self):
-    o = Observable.fromIterable([1, 2, 3])
-    a1 = o.toList().wait()
-    a2 = o.toList().wait()
+  def test_create(self):
+    state = Struct(
+      subscribeCalled=False,
+      disposeCalled=False
+    )
 
-    self.assertSequenceEqual([1, 2, 3], a1, "both should be [1, 2, 3]", list)
-    self.assertSequenceEqual([1, 2, 3], a2, "both should be [1, 2, 3]", list)
+    def subscribe(observer):
+      state.subscribeCalled = True
+
+      def dispose():
+        state.disposeCalled = True
+
+      return dispose
+
+    o = Observable.create(subscribe)
+
+    with o.subscribe(lambda x: None):
+      self.assertTrue(state.subscribeCalled, "create should call provided subscribe method")
+
+    self.assertTrue(state.disposeCalled, "create should call the provided dispose method")
+
+  def test_defer(self):
+    values = [3, 2, 1]
+    state = Struct(deferCalled=False)
+
+    def defered():
+      state.deferCalled = True
+      return Observable.fromIterable(values)
+
+    o = Observable.defer(defered)
+    a = o.toList().wait()
+
+    self.assertSequenceEqual(values, a, "defere should return the created observable sequence", list)
+
+  def test_empty(self):
+    self.assertHasMessages(
+      Observable.empty(),
+      OnComplete()
+    )
+
+  def test_generate(self):
+    def condition(x):
+      return x < 3
+    def iterate(x):
+      return x + 1
+    def resultSelector(x):
+      return x
+
+    o = Observable.generate(0, condition, iterate, resultSelector)
+
+    self.assertHasMessages(
+      o,
+      OnNext(0),
+      OnNext(1),
+      OnNext(2),
+      OnComplete()
+    )
+
+  def test_range(self):
+    self.assertHasMessages(
+      Observable.range(1, 3),
+      OnNext(0),
+      OnNext(1),
+      OnNext(2),
+      OnComplete()
+    )
+
+  def test_repeat(self):
+    self.assertHasMessages(
+      Observable.repeat(5, 4),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnComplete()
+    )
+
+  def test_return(self):
+    self.assertHasMessages(
+      Observable.returnValue(5),
+      OnNext(5),
+      OnComplete()
+    )
+
+  def test_throw(self):
+    ex = Exception("")
+
+    self.assertHasMessages(
+      Observable.throw(ex),
+      OnError(ex)
+    )
+
+  def test_using(self):
+    def dispose():
+      state.resourceDisposed = True
+
+    state = Struct(
+      resourceCreated=False,
+      resourceDisposed=False,
+      resourceWasState=False,
+      dispose=dispose
+    )
+
+    def createResource():
+      state.resourceCreated = True
+      return state
+
+    def createObservable(resource):
+      state.resourceWasState = resource is state
+
+      def subscribe(observer):
+        return Disposable.empty()
+
+      return Observable.create(subscribe)
+
+    with Observable.using(createResource, createObservable).subscribe():
+      self.assertTrue(state.resourceCreated, "using should use resource factory")
+      self.assertTrue(state.resourceWasState, "using should foreward created resource to observable factory")
+
+    self.assertTrue(state.resourceDisposed, "using should dispose resource")
+
+  def test_from_iterable(self):
+    values = [1, 2, 3]
+
+    self.assertHasMessages(
+      Observable.fromIterable(values),
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnComplete()
+    )
+
+    # We do it twice to test if we can reiterate the iterable
+    self.assertHasMessages(
+      Observable.fromIterable(values),
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnComplete()
+    )
+
+  def test_from_event(self):
+    state = Struct(
+      handler=None,
+      receivedValue=None
+    )
+
+    def addHandler(h):
+      self.assertIsNone(state.handler, "fromEvent should only attach the handler once")
+      state.handler = h
+
+    def removeHandler(h):
+      self.assertIs(state.handler, h, "fromEvent should remove the correct handler")
+      state.handler = None
+
+    def onNext(value):
+      state.receivedValue = value
+
+    o = Observable.fromEvent(addHandler, removeHandler)
+
+    with o.subscribe(onNext, self.fail):
+      self.assertIsNotNone(state.handler, "fromEvent should attach a handler")
+      state.handler(5)
+
+    self.assertEqual(5, state.receivedValue, "fromEvent should foreward event value")
+    self.assertIsNone(state.handler, "fromEvent should remove the handler")
+
+
+
+
+
+
+
+
+
+
 
 
 

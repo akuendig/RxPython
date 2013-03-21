@@ -340,7 +340,7 @@ class DefaultScheduler(Scheduler):
       if not d.isDisposed:
         d.disposable = action(self, state)
 
-    future = self.executor.submit(scheduled)
+    future = self.pool.submit(scheduled)
     cancel = Disposable.create(future.cancel)
 
     return CompositeDisposable(d, cancel)

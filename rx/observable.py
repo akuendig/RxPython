@@ -67,7 +67,7 @@ class ObservableBase(Observable):
 
   def scheduledSubscribe(self, scheduler, autoDetachObserver):
     try:
-      autoDetachObserver.disposable(self.subscribeCore(autoDetachObserver))
+      autoDetachObserver.disposable = self.subscribeCore(autoDetachObserver)
     except Exception as e:
       if not autoDetachObserver.fail(e):
         raise e

@@ -60,7 +60,7 @@ class EventProducer(Producer):
           self.count -= 1
           connection.dispose()
 
-          observer.onErro(e)
+          observer.onError(e)
           return Disposable.empty()
 
       def dispose():

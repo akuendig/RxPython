@@ -129,7 +129,7 @@ class Generate(Producer):
       if scheduler.isLongRunning:
         return scheduler.scheduleLongRunning(self.loop)
       else:
-        return scheduler.schedule(self.loopRec)
+        return scheduler.scheduleRecursive(self.loopRec)
 
     def loop(self, cancel):
       while not cancel.isDisposed:

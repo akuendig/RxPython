@@ -500,7 +500,7 @@ def empty(scheduler=Scheduler.constantTimeOperations):
 Observable.empty = empty
 
 def generate(initialState, condition, iterate, resultSelector, scheduler=Scheduler.iteration):
-  return Generate(initialState, condition, iterate, resultSelector, scheduler)
+  return Generate(initialState, condition, iterate, resultSelector, None, None, scheduler)
 Observable.generate = generate
 
 Observable.never = lambda: Never()
@@ -515,7 +515,6 @@ Observable.repeat = repeat
 
 def returnOp(value, scheduler = Scheduler.constantTimeOperations):
   return Return(value, scheduler)
-Observable.ret = returnOp
 Observable.returnValue = returnOp
 
 def throw(exception, scheduler=Scheduler.constantTimeOperations):
