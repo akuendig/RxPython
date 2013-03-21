@@ -3,9 +3,9 @@ from .sink import ConcatSink
 
 
 class While(Producer):
-  def __init__(self, condition, source):
-    self.condition = condition
+  def __init__(self, source, condition):
     self.source = source
+    self.condition = condition
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(observer, cancel)

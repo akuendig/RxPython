@@ -288,7 +288,7 @@ class SingleAssignmentDisposable(Cancelable):
         self.current.dispose()
 
 
-class AsyncLock(Disposable):
+class AsyncLock(Cancelable):
   def __init__(self):
     super(AsyncLock, self).__init__()
 

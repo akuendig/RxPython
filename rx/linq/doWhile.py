@@ -14,6 +14,7 @@ class DoWhile(Producer):
 
   def getSources(self):
     yield self.source
+
     while self.condition():
       yield self.source
 

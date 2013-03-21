@@ -1,5 +1,4 @@
 import unittest
-import sys
     # sys.stdout.write(str(dir(a)))
 # from rx.linq import Observable
 from rx.disposable import Disposable
@@ -11,9 +10,6 @@ from rx.subject import Subject
 def rep(value, count):
   return Observable.fromIterable([value]*count)
 
-def assertHasMessages(self, observable, *messages):
-  self.assertSequenceEqual(list(messages), list(observable.materialize()))
-
 def OnNext(value):
   return Notification.createOnNext(value)
 
@@ -23,9 +19,20 @@ def OnError(exception):
 def OnComplete():
   return Notification.createOnCompleted()
 
-class TestAggregation(unittest.TestCase):
-  assertHasMessages = assertHasMessages
+class ReactiveTest(unittest.TestCase):
+  def assertHasMessages(self, observable, *messages):
+    expected = list(messages)
+    actual = list(observable.materialize())
 
+    errorExpected = [x for x in expected if x.NotificationKind == Notification.KIND_ERROR]
+    errorActual = [x for x in actual if x.NotificationKind == Notification.KIND_ERROR]
+
+    if len(errorExpected) == 0 and len(errorActual) > 0:
+      self.fail(errorActual[0].exception)
+
+    self.assertSequenceEqual(expected, actual, "The observable should generate the correct messages", list)
+
+class TestAggregation(ReactiveTest):
   def test_aggregate(self):
     o = rep(5, 4)
     s = o.aggregate(0, lambda acc, el: acc + el).wait()
@@ -179,7 +186,7 @@ class TestAggregation(unittest.TestCase):
     self.assertRaisesRegex(Exception, "Duplicate key", a)
 
 
-class TestBinding(unittest.TestCase):
+class TestBinding(ReactiveTest):
   def test_multicast(self):
     state = {
       'isSet1': False,
@@ -327,7 +334,7 @@ class TestBinding(unittest.TestCase):
     self.assertEqual(3, a2, "last should be 3")
 
 
-class TestBlocking(unittest.TestCase):
+class TestBlocking(ReactiveTest):
   def test_collect(self):
     def getInitialCollector():
       return []
@@ -415,7 +422,7 @@ class TestBlocking(unittest.TestCase):
     self.assertEqual(7, a, "single 5 sould not be found, 7 sould be returned")
 
 
-class TestConcurrency(unittest.TestCase):
+class TestConcurrency(ReactiveTest):
   def test_subscribe_on(self):
     state = Struct(wasScheduled=False)
 
@@ -464,9 +471,7 @@ class TestConcurrency(unittest.TestCase):
     self.assertTrue(state.wasLocked, "synchronize should use the lock provided")
 
 
-class TestCreation(unittest.TestCase):
-  assertHasMessages = assertHasMessages
-
+class TestCreation(ReactiveTest):
     # Only use setUp() and tearDown() if necessary
 
     # def setUp(self):
@@ -641,6 +646,79 @@ class TestCreation(unittest.TestCase):
 
     self.assertEqual(5, state.receivedValue, "fromEvent should foreward event value")
     self.assertIsNone(state.handler, "fromEvent should remove the handler")
+
+
+class TestImperative(ReactiveTest):
+  def test_case(self):
+    selector = lambda: 5
+    sources = {
+      5: Observable.fromIterable([3, 2, 1]),
+      4: Observable.fromIterable([6, 5, 4])
+    }
+
+    self.assertHasMessages(
+      Observable.case(selector, sources),
+      OnNext(3),
+      OnNext(2),
+      OnNext(1),
+      OnComplete()
+    )
+
+  def test_doWhile(self):
+    state = Struct(count=4)
+
+    def condition():
+      state.count -= 1
+      return state.count >= 0
+
+    self.assertHasMessages(
+      Observable.returnValue(5).doWhile(condition),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnComplete()
+    )
+
+  def test_iterable_for(self):
+    self.assertHasMessages(
+      Observable.iterableFor(range(1, 5), lambda x: Observable.returnValue(x)),
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnNext(4),
+      OnComplete()
+    )
+
+  def test_branch(self):
+    def condition():
+      return False
+
+    thenSource = Observable.returnValue(5)
+    elseSource = Observable.returnValue(6)
+
+    self.assertHasMessages(
+      Observable.branch(condition, thenSource, elseSource),
+      OnNext(6),
+      OnComplete()
+    )
+
+  def test_loop(self):
+    state = Struct(count=4)
+
+    def condition():
+      state.count -= 1
+      return state.count >= 0
+
+    self.assertHasMessages(
+      Observable.returnValue(5).loop(condition),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnNext(5),
+      OnComplete()
+    )
 
 
 

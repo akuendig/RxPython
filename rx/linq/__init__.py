@@ -539,13 +539,13 @@ Observable.fromEvent = fromEvent
 #    Imperative    #
 ####################
 
-def case(self, sources, schedulerOrDefaultSource=None):
+def case(selector, sources, schedulerOrDefaultSource=None):
   if schedulerOrDefaultSource == None:
-    return Case(self, sources, Empty())
+    return Case(selector, sources, empty())
   elif isinstance(schedulerOrDefaultSource, Scheduler):
-    return Case(self, sources, Empty(schedulerOrDefaultSource))
+    return Case(selector, sources, empty(schedulerOrDefaultSource))
   else:
-    return Case(self, sources, schedulerOrDefaultSource)
+    return Case(selector, sources, schedulerOrDefaultSource)
 Observable.case = case
 
 Observable.doWhile = lambda self, condition: DoWhile(self, condition)
@@ -554,14 +554,14 @@ Observable.iterableFor = lambda source, resultSelector: For(source, resultSelect
 
 def branch(condition, thenSource, schedulerOrElseSource=None):
   if schedulerOrElseSource == None:
-    return If(condition, thenSource, Empty())
+    return If(condition, thenSource, empty())
   elif isinstance(schedulerOrElseSource, Scheduler):
-    return If(condition, thenSource, Empty(schedulerOrElseSource))
+    return If(condition, thenSource, empty(schedulerOrElseSource))
   else:
     return If(condition, thenSource, schedulerOrElseSource)
 Observable.branch = branch
 
-Observable.loop = lambda condition, source: While(condition, source)
+Observable.loop = lambda source, condition: While(source, condition)
 
 ####################
 #      Joins       #

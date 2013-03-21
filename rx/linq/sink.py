@@ -59,7 +59,13 @@ class TailRecursiveSink(Sink):
     self.length = []
 
     self.stack.append(iter(sources))
-    self.length.append(len(sources))
+
+    try:
+      length = len(sources)
+    except TypeError:
+      self.length.append(-1)
+    else:
+      self.length.append(length)
 
     def scheduled(continuation):
       self.recurse = continuation
@@ -81,7 +87,7 @@ class TailRecursiveSink(Sink):
     current = None
 
     while True:
-      if self.stack.count == 0:
+      if len(self.stack) == 0:
         break
 
       if self.isDisposed:
@@ -124,7 +130,13 @@ class TailRecursiveSink(Sink):
 
         if nextSeq != None:
           self.stack.append(iter(nextSeq))
-          self.length.append(len(nextSeq))
+
+          try:
+            length = len(nextSeq)
+          except TypeError:
+            self.length.append(-1)
+          else:
+            self.length.append(length)
 
           hasCurrent = False
 
