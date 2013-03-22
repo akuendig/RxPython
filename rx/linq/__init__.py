@@ -97,9 +97,23 @@ from rx.subject import AsyncSubject, BehaviorSubject, ReplaySubject, Subject
 
 import itertools
 import sys
+import collections
 from threading import Event
 
 def truePredicate(c): return True
+
+def flattedObservables(items):
+  for item in items:
+    isIterable = isinstance(item, collections.Iterable)
+    isString = isinstance(item, str)
+
+    if isinstance(item, Observable):
+      yield item
+    elif isIterable and not isString:
+      for element in item:
+        yield element
+    else:
+      yield item
 
 ####################
 #    Aggreagate    #
@@ -132,8 +146,13 @@ def count(self, predicate=truePredicate):
   return Count(self, predicate)
 Observable.count = count
 
-Observable.elementAt = lambda self, index: ElementAt(self, index, True)
-Observable.elementAtOrDefault = lambda self, index: ElementAt(self, index, False)
+def elementAt(self, index):
+  return ElementAt(self, index, True, None)
+Observable.elementAt = elementAt
+
+def elementAtOrDefault(self, index, default=None):
+  return ElementAt(self, index, False, default)
+Observable.elementAtOrDefault = elementAtOrDefault
 
 def firstAsync(self, predicate=truePredicate):
   return FirstAsync(self, predicate, True, None)
@@ -143,7 +162,9 @@ def firstAsyncOrDefault(self, predicate=truePredicate, default=None):
   return FirstAsync(self, predicate, False, default)
 Observable.firstAsyncOrDefault = firstAsyncOrDefault
 
-Observable.isEmpty = lambda self: IsEmpty(self)
+def isEmpty(self):
+  return IsEmpty(self)
+Observable.isEmpty = isEmpty
 
 def lastAsync(self, predicate=truePredicate):
   return LastAsync(self, predicate, True, None)
@@ -192,7 +213,9 @@ def toDictionary(self, keySelector=identity, elementSelector=identity):
   return ToDictionary(self, keySelector, elementSelector)
 Observable.toDictionary = toDictionary
 
-Observable.toList = lambda self: ToList(self)
+def toList(self):
+  return ToList(self)
+Observable.toList = toList
 
 ####################
 #     Binding      #
@@ -230,7 +253,9 @@ def publishLast(self, selector=None):
     return self.multicastIndividual(sub, selector)
 Observable.publishLast = publishLast
 
-Observable.refCount = lambda self: RefCount(self)
+def refCount(self):
+  return RefCount(self)
+Observable.refCount = refCount
 
 def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, scheduler=Scheduler.currentThread):
   if selector == None:
@@ -375,11 +400,17 @@ def lastOrDefault(self, predicate=None, default=None):
     return lastOrDefault(Where(self, predicate, False), default=default)
 Observable.lastOrDefault = lastOrDefault
 
-Observable.latest = lambda self: Latest(self)
+def latest(self):
+  return Latest(self)
+Observable.latest = latest
 
-Observable.mostRecent = lambda self: MostRecent(self)
+def mostRecent(self):
+  return MostRecent(self)
+Observable.mostRecent = mostRecent
 
-Observable.next = lambda self: Next(self)
+def next(self):
+  return Next(self)
+Observable.next = next
 
 
 def singleOrDefaultInternal(source, throwOnEmpty, default):
@@ -455,7 +486,9 @@ def subscribeOn(self, scheduler):
   return AnonymousObservable(subscribe)
 Observable.subscribeOn = subscribeOn
 
-Observable.observeOn = lambda self, scheduler: ObserveOn(self, scheduler)
+def observeOn(self, scheduler):
+  return ObserveOn(self, scheduler)
+Observable.observeOn = observeOn
 
 def synchronize(self, gate=None):
   return Synchronize(self, gate)
@@ -493,7 +526,9 @@ def create(subscribe):
   return AnonymousObservable(wrapper)
 Observable.create = create
 
-Observable.defer = lambda observableFactory: Defer(observableFactory)
+def defer(observableFactory):
+  return Defer(observableFactory)
+Observable.defer = defer
 
 def empty(scheduler=Scheduler.constantTimeOperations):
   return Empty(scheduler)
@@ -503,7 +538,9 @@ def generate(initialState, condition, iterate, resultSelector, scheduler=Schedul
   return Generate(initialState, condition, iterate, resultSelector, None, None, scheduler)
 Observable.generate = generate
 
-Observable.never = lambda: Never()
+def never():
+  return Never()
+Observable.never = never
 
 def rangeOp(start, count, scheduler=Scheduler.iteration):
   return Range(start, count, scheduler)
@@ -521,7 +558,9 @@ def throw(exception, scheduler=Scheduler.constantTimeOperations):
   return Throw(exception, scheduler)
 Observable.throw = throw
 
-Observable.using = lambda resourceFactory, observableFactory: Using(resourceFactory, observableFactory)
+def using(resourceFactory, observableFactory):
+  return Using(resourceFactory, observableFactory)
+Observable.using = using
 
 ####################
 #      From***     #
@@ -548,20 +587,34 @@ def case(selector, sources, schedulerOrDefaultSource=None):
     return Case(selector, sources, schedulerOrDefaultSource)
 Observable.case = case
 
-Observable.doWhile = lambda self, condition: DoWhile(self, condition)
+def doWhile(self, condition):
+  return DoWhile(self, condition)
+Observable.doWhile = doWhile
 
-Observable.iterableFor = lambda source, resultSelector: For(source, resultSelector)
+def iterableFor(source, resultSelector):
+  return For(source, resultSelector)
+Observable.iterableFor = iterableFor
 
 def branch(condition, thenSource, schedulerOrElseSource=None):
+  assert callable(condition)
+  assert isinstance(thenSource, Observable)
+
   if schedulerOrElseSource == None:
     return If(condition, thenSource, empty())
   elif isinstance(schedulerOrElseSource, Scheduler):
     return If(condition, thenSource, empty(schedulerOrElseSource))
   else:
+    assert isinstance(schedulerOrElseSource, Observable)
+
     return If(condition, thenSource, schedulerOrElseSource)
 Observable.branch = branch
 
-Observable.loop = lambda source, condition: While(source, condition)
+def loop(source, condition):
+  assert isinstance(source, Observable)
+  assert callable(condition)
+
+  return While(source, condition)
+Observable.loop = loop
 
 ####################
 #      Joins       #
@@ -572,49 +625,46 @@ Observable.loop = lambda source, condition: While(source, condition)
 ####################
 
 def amb(first, *second):
+  assert isinstance(first, Observable)
+
   for source in second:
+    assert isinstance(second, Observable)
+
     first = Amb(first, source)
 
   return first
 Observable.amb = amb
 
-# def bufferWithSelector(self, bufferOpeningSelector, bufferClosingSelector):
+# def bufferIndividual(self, bufferOpeningSelector, bufferClosingSelector):
 #   pass
 
-Observable.catchException = lambda self, handler: CatchException(self, handler)
+def catchException(self, handler):
+  return CatchException(self, handler)
+Observable.catchException = catchException
 
-def catchFallback(self, *sources):
-  if len(sources) == 1:
-    try:
-      sources = iter(sources[0])
-    except TypeError:
-      sources = [sources[0]]
-  else:
-    sources = iter(sources)
-
-  return CatchFallback(self, sources)
+def catchFallback(*sources):
+  return CatchFallback(flattedObservables(sources))
 Observable.catchFallback = catchFallback
 
-def combineLatest(sources, resultSelector=list):
-  return CombineLatest(list(sources), resultSelector)
+def combineLatest(*sources, resultSelector=tuple):
+  assert callable(resultSelector)
+
+  sources = list(flattedObservables(sources))
+  return CombineLatest(sources, resultSelector)
 Observable.combineLatest = combineLatest
 
-Observable.concat = lambda sources: Concat(sources)
+def concat(*sources):
+  return Concat(flattedObservables(sources))
+Observable.concat = concat
 
-def merge(sources, maxConcurrency=0):
-  return Merge(sources, maxConcurrency)
+def merge(sourcesObservable, maxConcurrency=0):
+  assert isinstance(sourcesObservable, Observable)
+
+  return Merge(sourcesObservable, maxConcurrency)
 Observable.merge = merge
 
 def onErrorResumeNext(*sources):
-  if len(sources) == 1:
-    try:
-      sources = iter(sources[0])
-    except TypeError:
-      sources = [sources[0]]
-  else:
-    sources = iter(sources)
-
-  return OnErrorResumeNext(sources)
+  return OnErrorResumeNext(flattedObservables(sources))
 Observable.onErrorResumeNext = onErrorResumeNext
 
 def skipUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
@@ -624,7 +674,10 @@ def skipUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
     return SkipUntilTime(self, otherOrTime, scheduler)
 Observable.skipUntil = skipUntil
 
-Observable.switch = lambda sources: Switch(list(sources))
+def switch(*sources):
+  sources = flattedObservables(sources)
+  return Switch(list(sources))
+Observable.switch = switch
 
 def takeUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
   if isinstance(otherOrTime, Observable):
@@ -634,15 +687,7 @@ def takeUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
 Observable.takeUntil = takeUntil
 
 def zipOp(*sources):
-  if len(sources) == 1:
-    try:
-      sources = iter(sources[0])
-    except TypeError:
-      sources = [sources[0]]
-  else:
-    sources = iter(sources)
-
-  return Zip(sources)
+  return Zip(flattedObservables(sources))
 Observable.zip = zipOp
 
 ####################
@@ -677,8 +722,9 @@ Observable.distinctUntilChanged = distinctUntilChanged
 def do(self, onNext=noop, onError=noop, onCompleted=noop):
   return Do(self, onNext, onError, onCompleted)
 
-Observable.fin = lambda self, action: Finally(self, action)
-Observable.finalAction = Observable.fin
+def doFinally(self, action):
+  return Finally(self, action)
+Observable.doFinally = doFinally
 
 def ignoreElements(self):
   if isinstance(self, IgnoreElements):
@@ -726,14 +772,20 @@ Observable.skipLast = skipLast
 
 def startWith(self, *values):
   if len(values) == 1:
-    try:
-      values = iter(values[0])
-    except TypeError:
-      values = [values[0]]
+    first = values[0]
+
+    if isinstance(first, Observable):
+      values = [first]
+    else:
+      try:
+        values = iter(first)
+      except TypeError:
+        values = [first]
   else:
     values = iter(values)
 
   return Observable.fromIterable(values).concat(self)
+Observable.startWith = startWith
 
 def takeLast(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
   if isinstance(countOrTime, int):
@@ -760,7 +812,9 @@ Observable.window = window
 # StandardSequence #
 ####################
 
-Observable.defaultIfEmpty = lambda self, default: DefaultIfEmpty(self, default)
+def defaultIfEmpty(self, default):
+  return DefaultIfEmpty(self, default)
+Observable.defaultIfEmpty = defaultIfEmpty
 
 def distinct(self, keySelector=identity):
   return Distinct(self, keySelector)
@@ -782,11 +836,17 @@ def join(left, right, leftDurationSelector, rightDurationSelector, resultSelecto
   return Join(left, right, leftDurationSelector, rightDurationSelector, resultSelector)
 Observable.join = join
 
-Observable.ofType = lambda self, tpe: OfType(self, tpe)
+def ofType(self, tpe):
+  return OfType(self, tpe)
+Observable.ofType = ofType
 
-Observable.select = lambda self, selector: Select(self, selector, False)
+def select(self, selector):
+  return Select(self, selector, False)
+Observable.select = select
 
-Observable.selectEnumrate = lambda self, selector: Select(self, selector, True)
+def selectEnumerate(self, selector):
+  return Select(self, selector, True)
+Observable.selectEnumrate = selectEnumrate
 
 def selectMany(self, onNext, onError=noop, onCompleted=noop):
   if callable(onNext):
@@ -813,9 +873,13 @@ def skip(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
     return SkipTime(self, countOrTime, scheduler)
 Observable.skip = skip
 
-Observable.skipWhile = lambda self, predicate: SkipWhile(self, predicate, False)
+def skipWhile(self, predicate):
+  return SkipWhile(self, predicate, False)
+Observable.skipWhile = skipWhile
 
-Observable.skipWhileEnumerate = lambda self, predicate: SkipWhile(self, predicate, True)
+def skipWhileEnumerate(self, predicate):
+  return SkipWhile(self, predicate, True)
+Observable.skipWhileEnumerate = skipWhileEnumerate
 
 def take(self, countOrTime):
   if isinstance(self, TakeCount) or isinstance(self, TakeTime):
@@ -827,9 +891,13 @@ def take(self, countOrTime):
     return TakeTime(self, countOrTime)
 Observable.take = take
 
-Observable.takeWhile = lambda self, predicate: TakeWhile(self, predicate, False)
+def takeWhile(self, predicate):
+  return TakeWhile(self, predicate, False)
+Observable.takeWhile = takeWhile
 
-Observable.takeWhileEnumerate = lambda self, predicate: TakeWhile(self, predicate, True)
+def takeWhileEnumerate(self, predicate):
+  return TakeWhile(self, predicate, True)
+Observable.takeWhileEnumerate = takeWhileEnumerate
 
 def where(self, predicate):
   if isinstance(self, Where):
@@ -890,13 +958,17 @@ def sampleWithTime(self, interval, scheduler=Scheduler.timeBasedOperation):
   return SampleWithTime(self, interval, scheduler)
 Observable.sampleWithTime = sampleWithTime
 
-Observable.sampleWithObservable = lambda self, sampler: SampleWithObservable(self, sampler)
+def sampleWithObservable(self, sampler):
+  return SampleWithObservable(self, sampler)
+Observable.sampleWithObservable = sampleWithObservable
 
 def throttle(self, dueTime, scheduler=Scheduler.timeBasedOperation):
   return ThrottleTime(self, dueTime, scheduler)
 Observable.throttle = throttle
 
-Observable.throttleIndividual = lambda self, durationSelector: ThrottleObservable(self, durationSelector)
+def throttleIndividual(self, durationSelector):
+  return ThrottleObservable(self, durationSelector)
+Observable.throttleIndividual = throttleIndividual
 
 def timeInterval(self, scheduler=Scheduler.timeBasedOperation):
   return TimeInterval(self, scheduler)
