@@ -3,10 +3,11 @@ from .sink import Sink
 
 
 class ElementAt(Producer):
-  def __init__(self, source, index, throwOnEmpty):
+  def __init__(self, source, index, throwOnEmpty, default):
     self.source = source
     self.index = index
     self.throwOnEmpty = throwOnEmpty
+    self.default = default
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)
@@ -35,7 +36,7 @@ class ElementAt(Producer):
       if self.parent.throwOnEmpty:
         self.observer.onError(Exception("Argument out of range: index"))
       else:
-        self.observer.onNext(None)
+        self.observer.onNext(self.parent.default)
         self.observer.onCompleted()
 
       self.dispose()
