@@ -11,7 +11,7 @@ class CatchFallback(Producer):
   def run(self, observer, cancel, setSink):
     sink = self.Sink(observer, cancel)
     setSink(sink)
-    return sink.run()
+    return sink.run(self.sources)
 
   class Sink(TailRecursiveSink):
     def __init__(self, observer, cancel):
@@ -45,19 +45,19 @@ class CatchFallback(Producer):
 
 
 class CatchException(Producer):
-  def __init__(self, source, handler, exceptionType = type(Exception)):
+  def __init__(self, source, handler, exceptionType = Exception):
     self.source = source
     self.handler = handler
     self.exceptionType = exceptionType
 
   def run(self, observer, cancel, setSink):
-    sink = self.Sink(observer, cancel)
+    sink = self.Sink(self, observer, cancel)
     setSink(sink)
     return sink.run()
 
   class Sink(Sink):
     def __init__(self, parent, observer, cancel):
-      super(CatchFallback.Sink, self).__init__(observer, cancel)
+      super(CatchException.Sink, self).__init__(observer, cancel)
       self.parent = parent
 
     def run(self):
