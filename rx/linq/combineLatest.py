@@ -2,7 +2,6 @@ from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer
 from .sink import Sink
-from itertools import repeat
 from threading import RLock
 
 
@@ -25,11 +24,11 @@ class CombineLatest(Producer):
       srcs = list(self.parent.sources)
       N = len(srcs)
 
-      self.hasValue = list(repeat(False, N))
+      self.hasValue = [False]*N
       self.hasValueAll = False
-      self.values = list(repeat(None, N))
-      self.isDone = list(repeat(False, N))
-      self.subscriptions = list(repeat(None, N))
+      self.values = [None]*N
+      self.isDone = [False]*N
+      self.subscriptions = [None]*N
 
       self.gate = RLock()
 
