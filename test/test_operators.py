@@ -37,6 +37,10 @@ class Recorder(Observer):
   def onCompleted(self):
     self.isStopped = True
 
+  def materialize(self):
+    assert self.isStopped
+    return self.messages
+
   def subscribe(self):
     return self.source.materialize().subscribe(self)
 
@@ -50,7 +54,7 @@ class ReactiveTest(unittest.TestCase):
     errorActual = [x for x in actual if x.NotificationKind == Notification.KIND_ERROR]
 
     if len(errorExpected) == 0 and len(errorActual) > 0:
-      self.fail(errorActual[0].exception)
+      raise errorActual[0].exception
 
     self.assertSequenceEqual(expected, actual, "The observable should generate the correct messages", list)
 
@@ -756,14 +760,130 @@ class TestMultiple(ReactiveTest):
       s1.onNext(6)
       s1.onCompleted()
 
-    self.assertSequenceEqual([
-        OnNext(4),
-        OnNext(6),
-        OnComplete()
-      ],
-      r.messages,
-      "amb should subscribe to the first value",
-      list
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(6),
+      OnComplete()
+    )
+
+  def test_catch_exception(self):
+    state = Struct(
+      exception=None
+    )
+    ex = Exception("Test Exception")
+
+    def handler(exception):
+      state.exception = exception
+      return Observable.throw(ex).startWith(5)
+
+    s = Subject()
+    r = Recorder(s.catchException(handler))
+
+    with r.subscribe():
+      s.onNext(4)
+      s.onError(ex)
+
+    self.assertIs(ex, state.exception)
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(5),
+      OnError(ex)
+    )
+
+  def test_catch_fallback(self):
+    ex = Exception("Test Exception")
+    observables = [
+      Observable.throw(ex),
+      Observable.returnValue(5)
+    ]
+
+    self.assertHasMessages(
+      Observable.throw(ex).catchFallback(observables),
+      OnNext(5),
+      OnComplete()
+    )
+
+  def test_combine_latest(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    o = Observable.combineLatest(s1, s2)
+    r = Recorder(o)
+
+    with r.subscribe():
+      s1.onNext(5)
+      s2.onNext(4)
+      s2.onNext(3)
+      s2.onCompleted()
+      s1.onNext(6)
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext((5, 4)),
+      OnNext((5, 3)),
+      OnNext((6, 3)),
+      OnComplete()
+    )
+
+  def test_concat(self):
+    o1 = Observable.returnValue(4)
+    o2 = Observable.returnValue(5)
+    o3 = Observable.returnValue(6)
+
+    self.assertHasMessages(
+      o1.concat(o2, o3),
+      OnNext(4),
+      OnNext(5),
+      OnNext(6),
+      OnComplete()
+    )
+
+    self.assertHasMessages(
+      o1.concat([o2, o3]),
+      OnNext(4),
+      OnNext(5),
+      OnNext(6),
+      OnComplete()
+    )
+
+    self.assertHasMessages(
+      Observable.concat(o1, o2, o3),
+      OnNext(4),
+      OnNext(5),
+      OnNext(6),
+      OnComplete()
+    )
+
+    self.assertHasMessages(
+      Observable.concat([o1, o2, o3]),
+      OnNext(4),
+      OnNext(5),
+      OnNext(6),
+      OnComplete()
+    )
+
+  def test_merge(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    r = Recorder(Observable.merge(Observable.fromIterable([s1, s2])))
+
+    with r.subscribe():
+      s1.onNext(3)
+      s2.onNext(4)
+      s1.onNext(6)
+      s1.onCompleted()
+      s2.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(3),
+      OnNext(4),
+      OnNext(6),
+      OnComplete()
     )
 
 
