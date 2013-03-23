@@ -23,7 +23,7 @@ class TakeUntilObservable(Producer):
 
     def run(self):
       sourceObserver = self.T(self)
-      otherObserver = self.O(self)
+      otherObserver = self.O(self, sourceObserver)
 
       sourceSubscription = self.parent.source.subscribeSafe(sourceObserver)
       otherSubscription = self.parent.other.subscribeSafe(otherObserver)

@@ -6,6 +6,7 @@ from rx.internal import Struct
 from rx.notification import Notification
 from rx.observable import Observable
 from rx.observer import Observer
+from rx.scheduler import Scheduler
 from rx.subject import Subject
 
 def rep(value, count):
@@ -452,7 +453,7 @@ class TestConcurrency(ReactiveTest):
   def test_subscribe_on(self):
     state = Struct(wasScheduled=False)
 
-    class Sched(object):
+    class Sched(Scheduler):
       def schedule(self, action):
         state.wasScheduled = True
 
@@ -466,7 +467,7 @@ class TestConcurrency(ReactiveTest):
   def test_observe_on(self):
     state = Struct(loopScheduled=False)
 
-    class Sched(object):
+    class Sched(Scheduler):
       isLongRunning = True
 
       def scheduleLongRunning(self, action):
@@ -885,6 +886,112 @@ class TestMultiple(ReactiveTest):
       OnNext(6),
       OnComplete()
     )
+
+  def test_on_error_resume_next(self):
+    ex = Exception("Test Exception")
+    os = [
+      Observable.throw(ex),
+      Observable.throw(ex),
+      Observable.throw(ex),
+      Observable.returnValue(4),
+    ]
+
+    r = Recorder(Observable.onErrorResumeNext(os))
+
+    with r.subscribe():
+      pass
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnComplete()
+    )
+
+  def test_skip_until(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    r = Recorder(s1.skipUntil(s2))
+
+    with r.subscribe():
+      s1.onNext(1)
+      s2.onNext(3)
+      s1.onNext(2)
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(2),
+      OnComplete()
+    )
+
+  def test_switch(self):
+    s = Subject()
+    s1 = Subject()
+    s2 = Subject()
+
+    r = Recorder(s.switch())
+
+    with r.subscribe():
+      s.onNext(s1)
+
+      s1.onNext(1)
+
+      # should be ignored
+      s2.onNext(5)
+
+      s.onNext(s2)
+
+      # should be ignored
+      s1.onNext(2)
+
+      s2.onNext(6)
+
+      s2.onCompleted()
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(6),
+      OnComplete()
+    )
+
+  def test_take_until(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    r = Recorder(s1.takeUntil(s2))
+
+    with r.subscribe():
+      s1.onNext(1)
+      s2.onNext(3)
+      s1.onNext(2)
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnComplete()
+    )
+
+  def test_zip(self):
+    o1 = Observable.fromIterable([1, 2])
+    o2 = Observable.fromIterable([1, 2, 3])
+
+    r = Recorder(Observable.zip(o1, o2))
+
+    with r.subscribe():
+      pass
+
+    self.assertHasMessages(
+      r,
+      OnNext((1, 1)),
+      OnNext((2, 2)),
+      OnComplete()
+    )
+
+
 
 
 

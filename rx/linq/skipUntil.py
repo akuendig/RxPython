@@ -1,7 +1,7 @@
 from rx.concurrency import Atomic
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
-from rx.observer import Observer
+from rx.observer import Observer, NoopObserver
 from .sink import Sink
 
 
@@ -22,7 +22,7 @@ class SkipUntilObservable(Producer):
 
     def run(self):
       sourceObserver = self.T(self)
-      otherObserver = self.O(self)
+      otherObserver = self.O(self, sourceObserver)
 
       sourceSubscription = self.parent.source.subscribeSafe(sourceObserver)
       otherSubscription = self.parent.other.subscribeSafe(otherObserver)
@@ -35,7 +35,7 @@ class SkipUntilObservable(Producer):
     class T(Observer):
       def __init__(self, parent):
         self.parent = parent
-        self.observer = Observer.noop
+        self.observer = NoopObserver()
         self.subscription = SingleAssignmentDisposable()
 
       def setdisposable(self, value):

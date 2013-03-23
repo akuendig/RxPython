@@ -3,7 +3,6 @@ from rx.observable import Producer
 from rx.observer import Observer
 from .sink import Sink
 from collections import deque
-from itertools import repeat
 from threading import RLock
 
 
@@ -26,14 +25,17 @@ class Zip(Producer):
 
       N = len(srcs)
 
-      self.queues = list(repeat(None, N))
-      self.isDone = list(repeat(False, N))
-      self.subscriptions = list(repeat(None, N))
+      self.queues = [None] * N
+      self.isDone = [False] * N
+      self.subscriptions = [None] * N
       self.gate = RLock()
 
       for i in range(0, N):
         self.queues[i] = deque()
 
+      # Loop twice because subscribing could already yield
+      # a value before all queues are initialized
+      for i in range(0, N):
         d = SingleAssignmentDisposable()
         self.subscriptions[i] = d
 
@@ -54,8 +56,8 @@ class Zip(Producer):
       with self.gate:
         self.queues[index].append(value)
 
-        if all(map(lambda q: len(q) > 0)):
-          res = list(map(lambda q: q.popleft()))
+        if all([len(q) > 0 for q in self.queues]):
+          res = tuple(map(lambda q: q.popleft(), self.queues))
           self.observer.onNext(res)
         elif all(d for i, d in enumerate(self.isDone) if i != index):
           self.observer.onCompleted()
