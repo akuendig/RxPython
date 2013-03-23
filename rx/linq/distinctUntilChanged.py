@@ -6,6 +6,7 @@ class DistinctUntilChanged(Producer):
   def __init__(self, source, keySelector, equals):
     self.source = source
     self.keySelector = keySelector
+    self.equals = equals
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)

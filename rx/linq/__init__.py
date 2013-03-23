@@ -151,11 +151,11 @@ def average(self, selector=identity):
     return Average(Select(self, selector))
 Observable.average = average
 
-def contains(self, value, comparer=defaultComparer):
+def contains(self, value, equals=defaultComparer):
   assert isinstance(self, Observable)
-  assert callable(comparer)
+  assert callable(equals)
 
-  return Contains(self, value, comparer)
+  return Contains(self, value, equals)
 Observable.contains = contains
 
 def count(self, predicate=truePredicate):
@@ -670,8 +670,10 @@ def create(subscribe):
 
     if isinstance(a, Disposable):
       return a
-    else:
+    elif callable(a):
       return Disposable.create(a)
+    else:
+      return Disposable.empty()
 
   return AnonymousObservable(wrapper)
 Observable.create = create
@@ -707,11 +709,11 @@ def rangeOp(start, count, scheduler=Scheduler.iteration):
   return Range(start, count, scheduler)
 Observable.range = rangeOp
 
-def repeat(value, count=None, scheduler=Scheduler.iteration):
+def repeatValue(value, count=None, scheduler=Scheduler.iteration):
   assert isinstance(scheduler, Scheduler)
 
   return Repeat(value, count, scheduler)
-Observable.repeat = repeat
+Observable.repeatValue = repeatValue
 
 def returnOp(value, scheduler = Scheduler.constantTimeOperations):
   assert isinstance(scheduler, Scheduler)
@@ -934,6 +936,7 @@ def do(self, onNext=noop, onError=noop, onCompleted=noop):
   assert callable(onCompleted)
 
   return Do(self, onNext, onError, onCompleted)
+Observable.do = do
 
 def doFinally(self, action):
   assert isinstance(self, Observable)
@@ -990,14 +993,17 @@ def scan(self, seed=None, accumulator=None):
     return ScanWithSeed(self, seed, accumulator)
 Observable.scan = scan
 
-def skipLast(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
+def skipLastCount(self, count):
+  assert isinstance(self, Observable)
+
+  return SkipLastCount(self, count)
+Observable.skipLastCount = skipLastCount
+
+def skipLastTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
-  if isinstance(countOrTime, int):
-    return SkipLastCount(self, countOrTime)
-  else:
-    return SkipLastTime(self, countOrTime, scheduler)
+  return SkipLastTime(self, time, scheduler)
 Observable.skipLast = skipLast
 
 def startWith(self, *values):
@@ -1019,25 +1025,31 @@ def startWith(self, *values):
   return Observable.fromIterable(values).concat(self)
 Observable.startWith = startWith
 
-def takeLast(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
+def takeLastCount(self, count):
+  assert isinstance(self, Observable)
+
+  return TakeLastCount(self, count)
+Observable.takeLastCount = takeLastCount
+
+def takeLastTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
-  if isinstance(countOrTime, int):
-    return TakeLastCount(self, countOrTime)
-  else:
-    return TakeLastTime(self, countOrTime, scheduler)
-Observable.takeLast = takeLast
+  return TakeLastTime(self, time, scheduler)
+Observable.takeLastTime = takeLastTime
 
-def takeLastBuffer(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
+def takeLastBufferCount(self, count):
+  assert isinstance(self, Observable)
+
+  return TakeLastBufferCount(self, countOrTime)
+Observable.takeLastBufferCount = takeLastBufferCount
+
+def takeLastBufferTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
-  if isinstance(countOrTime, int):
-    return TakeLastBufferCount(self, countOrTime)
-  else:
-    return TakeLastBufferTime(self, countOrTime, scheduler)
-Observable.takeLastBuffer = takeLastBuffer
+  return TakeLastBufferTime(self, time, scheduler)
+Observable.takeLastBufferTime = takeLastBufferTime
 
 def window(self, count, skip=None):
   assert isinstance(self, Observable)

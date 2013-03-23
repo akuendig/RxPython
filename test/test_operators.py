@@ -18,7 +18,7 @@ def OnNext(value):
 def OnError(exception):
   return Notification.createOnError(exception)
 
-def OnComplete():
+def OnCompleted():
   return Notification.createOnCompleted()
 
 class Recorder(Observer):
@@ -51,8 +51,8 @@ class ReactiveTest(unittest.TestCase):
     expected = list(messages)
     actual = list(observable.materialize())
 
-    errorExpected = [x for x in expected if x.NotificationKind == Notification.KIND_ERROR]
-    errorActual = [x for x in actual if x.NotificationKind == Notification.KIND_ERROR]
+    errorExpected = [x for x in expected if x.kind == Notification.KIND_ERROR]
+    errorActual = [x for x in actual if x.kind == Notification.KIND_ERROR]
 
     if len(errorExpected) == 0 and len(errorActual) > 0:
       raise errorActual[0].exception
@@ -544,7 +544,7 @@ class TestCreation(ReactiveTest):
   def test_empty(self):
     self.assertHasMessages(
       Observable.empty(),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_generate(self):
@@ -562,7 +562,7 @@ class TestCreation(ReactiveTest):
       OnNext(0),
       OnNext(1),
       OnNext(2),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_range(self):
@@ -571,7 +571,7 @@ class TestCreation(ReactiveTest):
       OnNext(0),
       OnNext(1),
       OnNext(2),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_repeat(self):
@@ -581,14 +581,14 @@ class TestCreation(ReactiveTest):
       OnNext(5),
       OnNext(5),
       OnNext(5),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_return(self):
     self.assertHasMessages(
       Observable.returnValue(5),
       OnNext(5),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_throw(self):
@@ -636,7 +636,7 @@ class TestCreation(ReactiveTest):
       OnNext(1),
       OnNext(2),
       OnNext(3),
-      OnComplete()
+      OnCompleted()
     )
 
     # We do it twice to test if we can reiterate the iterable
@@ -645,7 +645,7 @@ class TestCreation(ReactiveTest):
       OnNext(1),
       OnNext(2),
       OnNext(3),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_from_event(self):
@@ -688,7 +688,7 @@ class TestImperative(ReactiveTest):
       OnNext(3),
       OnNext(2),
       OnNext(1),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_doWhile(self):
@@ -705,7 +705,7 @@ class TestImperative(ReactiveTest):
       OnNext(5),
       OnNext(5),
       OnNext(5),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_iterable_for(self):
@@ -715,7 +715,7 @@ class TestImperative(ReactiveTest):
       OnNext(2),
       OnNext(3),
       OnNext(4),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_branch(self):
@@ -728,7 +728,7 @@ class TestImperative(ReactiveTest):
     self.assertHasMessages(
       Observable.branch(condition, thenSource, elseSource),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_loop(self):
@@ -744,7 +744,7 @@ class TestImperative(ReactiveTest):
       OnNext(5),
       OnNext(5),
       OnNext(5),
-      OnComplete()
+      OnCompleted()
     )
 
 
@@ -765,7 +765,7 @@ class TestMultiple(ReactiveTest):
       r,
       OnNext(4),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_catch_exception(self):
@@ -803,7 +803,7 @@ class TestMultiple(ReactiveTest):
     self.assertHasMessages(
       Observable.throw(ex).catchFallback(observables),
       OnNext(5),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_combine_latest(self):
@@ -826,7 +826,7 @@ class TestMultiple(ReactiveTest):
       OnNext((5, 4)),
       OnNext((5, 3)),
       OnNext((6, 3)),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_concat(self):
@@ -839,7 +839,7 @@ class TestMultiple(ReactiveTest):
       OnNext(4),
       OnNext(5),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
     self.assertHasMessages(
@@ -847,7 +847,7 @@ class TestMultiple(ReactiveTest):
       OnNext(4),
       OnNext(5),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
     self.assertHasMessages(
@@ -855,7 +855,7 @@ class TestMultiple(ReactiveTest):
       OnNext(4),
       OnNext(5),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
     self.assertHasMessages(
@@ -863,7 +863,7 @@ class TestMultiple(ReactiveTest):
       OnNext(4),
       OnNext(5),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_merge(self):
@@ -884,7 +884,7 @@ class TestMultiple(ReactiveTest):
       OnNext(3),
       OnNext(4),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_on_error_resume_next(self):
@@ -904,7 +904,7 @@ class TestMultiple(ReactiveTest):
     self.assertHasMessages(
       r,
       OnNext(4),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_skip_until(self):
@@ -922,7 +922,7 @@ class TestMultiple(ReactiveTest):
     self.assertHasMessages(
       r,
       OnNext(2),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_switch(self):
@@ -954,7 +954,7 @@ class TestMultiple(ReactiveTest):
       r,
       OnNext(1),
       OnNext(6),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_take_until(self):
@@ -972,7 +972,7 @@ class TestMultiple(ReactiveTest):
     self.assertHasMessages(
       r,
       OnNext(1),
-      OnComplete()
+      OnCompleted()
     )
 
   def test_zip(self):
@@ -988,12 +988,186 @@ class TestMultiple(ReactiveTest):
       r,
       OnNext((1, 1)),
       OnNext((2, 2)),
-      OnComplete()
+      OnCompleted()
     )
 
 
+class TestSingle(ReactiveTest):
+  def test_as_observable(self):
+    s = Subject()
 
+    r = Recorder(s.asObservable())
 
+    with r.subscribe():
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_buffer(self):
+    s = Subject()
+    r = Recorder(s.buffer(2))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext([1, 2]),
+      OnNext([3]),
+      OnCompleted()
+    )
+
+  def test_dematerialize(self):
+    ex = Exception("Test Exception")
+
+    o = Observable.fromIterable([
+      OnNext(4),
+      OnError(ex)
+    ])
+
+    r = Recorder(o.dematerialize())
+
+    with r.subscribe():
+      pass
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnError(ex)
+    )
+
+  def test_distinct_until_changed(self):
+    s = Subject()
+    r = Recorder(s.distinctUntilChanged())
+
+    with r.subscribe():
+      s.onNext(4)
+      s.onNext(4)
+      s.onNext(5)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(5),
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_do(self):
+    state = Struct(
+      onNextCalled=False,
+      onNextValue=None,
+      onCompletedCalled=False
+    )
+
+    def onNext(value):
+      state.onNextCalled = True
+      state.onNextValue = value
+
+    def onCompleted():
+      state.onCompletedCalled = True
+
+    o = Observable.returnValue(5)
+    r = Recorder(o.do(onNext, onCompleted=onCompleted))
+
+    with r.subscribe():
+      pass
+
+    self.assertTrue(state.onNextCalled, "do should call onNext method")
+    self.assertEqual(5, state.onNextValue, "do should call onNext with correct value")
+    self.assertTrue(state.onCompletedCalled, "do should call onCompleted method")
+
+  def test_do_finally(self):
+    state = Struct(count=0)
+
+    def fin():
+      state.count += 1
+
+    r1 = Recorder(Observable.returnValue(4).doFinally(fin))
+    r2 = Recorder(Observable.throw(Exception("Test Exception")).doFinally(fin))
+
+    with r1.subscribe():
+      pass
+
+    with r2.subscribe():
+      pass
+
+    self.assertEqual(2, state.count, "doFinally should call final action")
+
+  def test_ignore_elements(self):
+    s = Subject()
+    r = Recorder(s.ignoreElements())
+
+    with r.subscribe():
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnCompleted()
+    )
+
+  def test_materialize(self):
+    s = Subject()
+    r = Recorder(s.materialize())
+
+    with r.subscribe():
+      s.onNext(5)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(OnNext(5)),
+      OnNext(OnCompleted()),
+      OnCompleted()
+    )
+
+  def test_repeat_self(self):
+    o = Observable.returnValue(4)
+    r = Recorder(o.repeatSelf(2))
+
+    with r.subscribe():
+      pass
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_retry(self):
+    state = Struct(count=4)
+
+    def subscribe(observer):
+      state.count -= 1
+
+      if state.count == 0:
+        observer.onNext(5)
+        observer.onCompleted()
+      else:
+        observer.onError(Exception("Test Exception"))
+
+    r = Recorder(Observable.create(subscribe).retry())
+
+    with r.subscribe():
+      pass
+
+    self.assertHasMessages(
+      r,
+      OnNext(5),
+      OnCompleted()
+    )
 
 
 

@@ -3,7 +3,7 @@ from rx.internal import Struct
 from rx.observable import Producer
 from .sink import Sink
 from threading import RLock
-from queue import Queue
+from collections import deque
 
 
 class Buffer(Producer):
@@ -43,7 +43,7 @@ class Buffer(Producer):
       self.parent = parent
 
     def run(self):
-      self.queue = Queue()
+      self.queue = deque()
       self.n = 0
 
       self.createWindow()
@@ -52,7 +52,7 @@ class Buffer(Producer):
 
     def createWindow(self):
       s = []
-      self.queue.put(s)
+      self.queue.append(s)
 
     def onNext(self, value):
       for s in self.queue:
@@ -61,7 +61,7 @@ class Buffer(Producer):
       c = self.n - self.parent.count + 1
 
       if c >= 0 and c % self.parent.skip == 0:
-        s = self.queue.get()
+        s = self.queue.popleft()
 
         if len(s) > 0:
           self.observer.onNext(s)
@@ -72,15 +72,15 @@ class Buffer(Producer):
         self.createWindow()
 
     def onError(self, exception):
-      while not self.queue.empty():
-        self.queue.get().clear()
+      while len(self.queue) > 0:
+        self.queue.popleft().clear()
 
       self.observer.onError(exception)
       self.dispose()
 
     def onCompleted(self):
-      while not self.queue.empty():
-        s = self.queue.get()
+      while len(self.queue) > 0:
+        s = self.queue.popleft()
 
         if len(s) > 0:
           self.observer.onNext(s)
@@ -134,7 +134,7 @@ class Buffer(Producer):
       self.nextShift = self.parent.timeShift
       self.nextSpan = self.parent.timeSpan
 
-      self.q = Queue()
+      self.queue = deque()
       self.gate = RLock()
 
       self.timerDisposable = SerialDisposable()
@@ -148,7 +148,7 @@ class Buffer(Producer):
 
     def createWindow(self):
       s = []
-      self.q.put(s)
+      self.queue.append(s)
 
     def createTimer(self):
       m = SingleAssignmentDisposable()
@@ -183,7 +183,7 @@ class Buffer(Producer):
     def tick(self, scheduler, state):
       with self.gate:
         if state.isSpan:
-          s = self.q.get()
+          s = self.queue.popleft()
           self.observer.onNext(s)
 
         if state.isShift:
@@ -195,21 +195,21 @@ class Buffer(Producer):
 
     def onNext(self, value):
       with self.gate:
-        for s in self.q:
+        for s in self.queue:
           s.append(value)
 
     def onError(self, exception):
       with self.gate:
-        while not self.q.empty():
-          self.q.get().clear()
+        while len(self.queue) > 0:
+          self.queue.popleft().clear()
 
         self.observer.onError(exception)
         self.dispose()
 
     def onCompleted(self):
       with self.gate:
-        while not self.q.empty():
-          s = self.q.get()
+        while len(self.queue) > 0:
+          s = self.queue.popleft()
           self.observer.onNext(s)
 
         self.observer.onCompleted()

@@ -6,7 +6,7 @@ class Notification(object):
 
   def __eq__(self, other):
     return (
-      self.NotificationKind == other.NotificationKind and
+      self.kind == other.kind and
       self.value == other.value and
       self.hasValue == other.hasValue and
       self.exception == other.exception
@@ -37,7 +37,7 @@ class OnNextNotification(Notification):
     self.value = value
     self.hasValue = True
     self.exception = None
-    self.NotificationKind = Notification.KIND_NEXT
+    self.kind = Notification.KIND_NEXT
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
@@ -53,7 +53,7 @@ class OnErrorNotification(Notification):
     self.value = None
     self.hasValue = False
     self.exception = exception
-    self.NotificationKind = Notification.KIND_ERROR
+    self.kind = Notification.KIND_ERROR
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
@@ -69,7 +69,7 @@ class OnCompletedNotification(Notification):
     self.value = None
     self.hasValue = False
     self.exception = None
-    self.NotificationKind = Notification.KIND_COMPLETED
+    self.kind = Notification.KIND_COMPLETED
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
