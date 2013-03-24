@@ -10,9 +10,9 @@ from threading import RLock
 
 
 class SelectMany(Producer):
-  def __init__(self, source, selector, selectorOnError, selectorOnCompleted, withIndex):
+  def __init__(self, source, selectorOnNext, selectorOnError, selectorOnCompleted, withIndex):
     self.source = source
-    self.selector = selector
+    self.selectorOnNext = selectorOnNext
     self.selectorOnError = selectorOnError
     self.selectorOnCompleted = selectorOnCompleted
     self.withIndex = withIndex
@@ -50,9 +50,9 @@ class SelectMany(Producer):
       try:
         if self.parent.withIndex:
           self.index += 1
-          inner = self.parent.selector(value, self.index)
+          inner = self.parent.selectorOnNext(value, self.index)
         else:
-          inner = self.parent.selector(value)
+          inner = self.parent.selectorOnNext(value)
       except Exception as e:
         with self.gate:
           self.observer.onError(e)
@@ -148,7 +148,7 @@ class SelectMany(Producer):
           self.parent.observer.onNext(value)
 
       def onError(self, exception):
-        with self.parent.lock:
+        with self.parent.gate:
           self.parent.observer.onError(exception)
           self.parent.dispose()
 
@@ -163,7 +163,7 @@ class SelectMany(Producer):
           # though, because the call to Dispose silences the observer by swapping
           # in a NopObserver<T>.
           #
-          with self.parent.lock:
+          with self.parent.gate:
             self.parent.observer.onCompleted()
             self.parent.dispose()
     #end LockingObserver

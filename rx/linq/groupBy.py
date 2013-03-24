@@ -48,7 +48,9 @@ class GroupBy(Producer):
 
           writer = self.null
         else:
-          if not key in self.map:
+          if key in self.map:
+            writer = self.map[key]
+          else:
             writer = Subject()
             self.map[key] = writer
             fireNewMapEntry = True

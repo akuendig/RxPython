@@ -2,8 +2,8 @@ from rx.disposable import Disposable, CompositeDisposable, SingleAssignmentDispo
 from rx.internal import Struct
 from rx.observable import Producer
 from .sink import Sink
-from threading import RLock
 from collections import deque
+from threading import RLock
 
 
 class Buffer(Producer):

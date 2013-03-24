@@ -6,9 +6,10 @@ from collections import deque
 
 
 class TakeLastCount(Producer):
-  def __init__(self, source, count):
+  def __init__(self, source, count, scheduler):
     self.source = source
     self.count = count
+    self.scheduler = scheduler
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)
@@ -23,11 +24,11 @@ class TakeLastCount(Producer):
 
     def run(self):
       self.subscription = SingleAssignmentDisposable()
-      self.loop = SingleAssignmentDisposable()
+      self.loopDisposable = SingleAssignmentDisposable()
 
       self.subscription.disposable = self.parent.source.subscribeSafe(self)
 
-      return CompositeDisposable(self.subscription, self.loop)
+      return CompositeDisposable(self.subscription, self.loopDisposable)
 
     def onNext(self, value):
       self.queue.append(value)
@@ -44,9 +45,9 @@ class TakeLastCount(Producer):
 
       scheduler = self.parent.scheduler
       if scheduler.isLongRunning:
-        self.loop.disposable = scheduler.scheduleLongRunning(self.loop)
+        self.loopDisposable.disposable = scheduler.scheduleLongRunning(self.loop)
       else:
-        self.loop.disposable = scheduler.scheduleRecursive(self.loopRec)
+        self.loopDisposable.disposable = scheduler.scheduleRecursive(self.loopRec)
 
     def loopRec(self, recurse):
       if len(self.queue) > 0:

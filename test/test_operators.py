@@ -56,8 +56,26 @@ class ReactiveTest(unittest.TestCase):
 
     if len(errorExpected) == 0 and len(errorActual) > 0:
       raise errorActual[0].exception
+    elif len(errorExpected) == 1 and len(errorActual) == 1:
+      self.assertEqual(
+        errorExpected[0],
+        errorActual[0],
+        "Exceptions shoud match"
+      )
 
-    self.assertSequenceEqual(expected, actual, "The observable should generate the correct messages", list)
+    self.assertSequenceEqual(
+      list(map(lambda x: x.value, expected)),
+      list(map(lambda x: x.value, actual)),
+      "On next values of observables should match",
+      list
+    )
+
+    self.assertSequenceEqual(
+      expected,
+      actual,
+      "The observable should generate the correct messages sequence",
+      list
+    )
 
 class TestAggregation(ReactiveTest):
   def test_aggregate(self):
@@ -574,9 +592,9 @@ class TestCreation(ReactiveTest):
       OnCompleted()
     )
 
-  def test_repeat(self):
+  def test_repeat_value(self):
     self.assertHasMessages(
-      Observable.repeat(5, 4),
+      Observable.repeatValue(5, 4),
       OnNext(5),
       OnNext(5),
       OnNext(5),
@@ -615,7 +633,7 @@ class TestCreation(ReactiveTest):
       return state
 
     def createObservable(resource):
-      state.resourceWasState = resource is state
+      state.resourceWasState = resource == state
 
       def subscribe(observer):
         return Disposable.empty()
@@ -1168,6 +1186,488 @@ class TestSingle(ReactiveTest):
       OnNext(5),
       OnCompleted()
     )
+
+  def test_scan(self):
+    s = Subject()
+    r = Recorder(s.scan(0, lambda acc, x: acc + x))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(3),
+      OnNext(6),
+      OnCompleted()
+    )
+
+  def test_skip_last(self):
+    s = Subject()
+    r = Recorder(s.skipLast(2))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onNext(5)
+      s.onNext(6)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_start_with(self):
+    s = Subject()
+    r = Recorder(s.startWith(1, 2))
+
+    with r.subscribe():
+      s.onNext(5)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnNext(5),
+      OnCompleted()
+    )
+
+  def test_take_last(self):
+    s = Subject()
+    r = Recorder(s.takeLast(2))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onNext(5)
+      s.onNext(6)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(5),
+      OnNext(6),
+      OnCompleted()
+    )
+
+  def test_take_last_buffer(self):
+    s = Subject()
+    r = Recorder(s.takeLastBuffer(2))
+
+    with r.subscribe():
+      s.onNext(3)
+      s.onNext(4)
+      s.onNext(5)
+      s.onNext(6)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext([5, 6]),
+      OnCompleted()
+    )
+
+  def test_window(self):
+    s1 = Subject()
+    s2 = Subject()
+    r = Recorder(s2)
+
+    s1.window(2, 1).subscribe(
+      lambda x: x.toList().subscribe(s2.onNext),
+      s2.onError,
+      s2.onCompleted
+    )
+
+    with r.subscribe():
+      s1.onNext(3)
+      s1.onNext(4)
+      s1.onNext(5)
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext([3, 4]),
+      OnNext([4, 5]),
+      OnNext([5]),
+      OnNext([]),
+      OnCompleted()
+    )
+
+
+class TestStandardSequence(ReactiveTest):
+  def test_default_if_empty(self):
+    s = Subject()
+    r = Recorder(s.defaultIfEmpty(5))
+
+    with r.subscribe():
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(5),
+      OnCompleted()
+    )
+
+  def test_distinct(self):
+    s = Subject()
+    r = Recorder(s.distinct())
+
+    with r.subscribe():
+      s.onNext(4)
+      s.onNext(4)
+      s.onNext(5)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(5),
+      OnCompleted()
+    )
+
+  def test_group_by(self):
+    s1 = Subject()
+    s2 = Subject()
+    r = Recorder(s2)
+
+    s1.groupBy(
+      lambda x: x['k'], lambda x: x['v']
+    ).subscribe(
+      lambda subject: subject.toList().subscribe(
+        lambda values: s2.onNext({'k': subject.key, 'v': values})
+      ),
+      s2.onError,
+      s2.onCompleted
+    )
+
+    with r.subscribe():
+      s1.onNext({'k': 1, 'v': 1})
+      s1.onNext({'k': 1, 'v': 2})
+      s1.onNext({'k': 2, 'v': 3})
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext({'k': 1, 'v': [1, 2]}),
+      OnNext({'k': 2, 'v': [3]}),
+      OnCompleted()
+    )
+
+  def test_group_by_until(self):
+    s1 = Subject()
+    s2 = Subject()
+    r = Recorder(s2)
+
+    s1.groupByUntil(
+      lambda x: x['k'],
+      lambda x: x['v'],
+      lambda x: Observable.never()
+    ).subscribe(
+      lambda obs: obs.toList().subscribe(
+        lambda values: s2.onNext({'k': obs.key, 'v': values})
+      ),
+      s2.onError,
+      s2.onCompleted
+    )
+
+    with r.subscribe():
+      s1.onNext({'k': 1, 'v': 1})
+      s1.onNext({'k': 1, 'v': 2})
+      s1.onNext({'k': 2, 'v': 3})
+      s1.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext({'k': 1, 'v': [1, 2]}),
+      OnNext({'k': 2, 'v': [3]}),
+      OnCompleted()
+    )
+
+  def test_group_join(self):
+    s1 = Subject()
+    s2 = Subject()
+    s3 = Subject()
+
+    s1.groupJoin(
+      s2,
+      lambda x: Observable.never(),
+      lambda x: Observable.never(),
+      lambda leftValue, rightObs: rightObs.select(lambda x: (leftValue, x))
+    ).subscribe(
+      lambda x: x.subscribe(s3.onNext),
+      s3.onError,
+      s3.onCompleted
+    )
+
+    r = Recorder(s3)
+
+    with r.subscribe():
+      s1.onNext(1)
+      s2.onNext(5)
+      s1.onNext(2)
+      s1.onCompleted()
+      s2.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext((1, 5)),
+      OnNext((2, 5)),
+      OnCompleted()
+    )
+
+  def test_join(self):
+    s1 = Subject()
+    s2 = Subject()
+
+    o = s1.join(
+      s2,
+      lambda x: Observable.never(),
+      lambda x: Observable.never(),
+      lambda left, right: (left, right)
+    )
+
+    r = Recorder(o)
+
+    with r.subscribe():
+      s1.onNext(1)
+      s2.onNext(5)
+      s1.onNext(2)
+      s1.onCompleted()
+      s2.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext((1, 5)),
+      OnNext((2, 5)),
+      OnCompleted()
+    )
+
+  def test_of_type(self):
+    s = Subject()
+    r = Recorder(s.ofType(int))
+
+    with r.subscribe():
+      s.onNext("Hello")
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_select(self):
+    s = Subject()
+    r = Recorder(s.select(lambda x: x * x))
+
+    with r.subscribe():
+      s.onNext(2)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(16),
+      OnCompleted()
+    )
+
+  def test_select_enumerate(self):
+    s = Subject()
+    r = Recorder(s.selectEnumerate(lambda x, i: x * i))
+
+    with r.subscribe():
+      s.onNext(2)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(0),
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_select_many(self):
+    ex = Exception("Test Exception")
+    s = Subject()
+    r = Recorder(s.selectMany(
+      lambda x: Observable.returnValue(x*x),
+      lambda ex: Observable.throw(ex)
+    ))
+
+    with r.subscribe():
+      s.onNext(2)
+      s.onNext(4)
+      s.onError(ex)
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnNext(16),
+      OnError(ex)
+    )
+
+  def test_select_many_ignore(self):
+    ex = Exception("Test Exception")
+    s = Subject()
+    r = Recorder(s.selectMany(
+      Observable.returnValue(1423)
+    ))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onError(ex)
+
+    self.assertHasMessages(
+      r,
+      OnNext(1423),
+      OnNext(1423),
+      OnError(ex)
+    )
+
+  def test_skip(self):
+    s = Subject()
+    r = Recorder(s.skip(3))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_skip_while(self):
+    s = Subject()
+    r = Recorder(s.skipWhile(lambda x: x < 4))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_skip_while_enumerate(self):
+    s = Subject()
+    r = Recorder(s.skipWhileEnumerate(lambda x, i: i < 3))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(4),
+      OnCompleted()
+    )
+
+  def test_take(self):
+    s = Subject()
+    r = Recorder(s.take(3))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnCompleted()
+    )
+
+  def test_take_while(self):
+    s = Subject()
+    r = Recorder(s.takeWhile(lambda x: x < 4))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnCompleted()
+    )
+
+  def test_take_while_enumerate(self):
+    s = Subject()
+    r = Recorder(s.takeWhileEnumerate(lambda x, i: i < 3))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(2)
+      s.onNext(3)
+      s.onNext(4)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnNext(3),
+      OnCompleted()
+    )
+
+  def test_where(self):
+    s = Subject()
+    r = Recorder(s.where(lambda x: x < 3))
+
+    with r.subscribe():
+      s.onNext(1)
+      s.onNext(90)
+      s.onNext(2)
+      s.onNext(80)
+      s.onCompleted()
+
+    self.assertHasMessages(
+      r,
+      OnNext(1),
+      OnNext(2),
+      OnCompleted()
+    )
+
 
 
 

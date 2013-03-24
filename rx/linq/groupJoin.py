@@ -66,7 +66,7 @@ class GroupJoin(Producer):
         with self.parent.gate:
           self.parent.leftID += 1
           resourceId = self.parent.leftID
-          self.parent.leftMap.add(resourceId, s)
+          self.parent.leftMap[resourceId] = s
 
         # AddRef was originally WindowObservable but this is just an alias for AddRef
         window = AddRef(s, self.parent.refCount)
@@ -147,7 +147,7 @@ class GroupJoin(Producer):
         with self.parent.gate:
           self.parent.rightID += 1
           resourceId = self.parent.rightID
-          self.parent.rightMap.add(resourceId, value)
+          self.parent.rightMap[resourceId] = value
 
         md = SingleAssignmentDisposable()
         self.parent.group.add(md)

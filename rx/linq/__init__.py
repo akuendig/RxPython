@@ -993,63 +993,50 @@ def scan(self, seed=None, accumulator=None):
     return ScanWithSeed(self, seed, accumulator)
 Observable.scan = scan
 
-def skipLastCount(self, count):
+def skipLast(self, count):
   assert isinstance(self, Observable)
 
   return SkipLastCount(self, count)
-Observable.skipLastCount = skipLastCount
+Observable.skipLast = skipLast
 
-def skipLastTime(self, time, scheduler=Scheduler.timeBasedOperation):
+def skipLastWithTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
   return SkipLastTime(self, time, scheduler)
-Observable.skipLast = skipLast
+Observable.skipLastWithTime = skipLastWithTime
 
 def startWith(self, *values):
   assert isinstance(self, Observable)
 
-  if len(values) == 1:
-    first = values[0]
-
-    if isinstance(first, Observable):
-      values = [first]
-    else:
-      try:
-        values = iter(first)
-      except TypeError:
-        values = [first]
-  else:
-    values = iter(values)
-
-  return Observable.fromIterable(values).concat(self)
+  return Observable.fromIterable(list(values)).concat(self)
 Observable.startWith = startWith
 
-def takeLastCount(self, count):
+def takeLast(self, count, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
 
-  return TakeLastCount(self, count)
-Observable.takeLastCount = takeLastCount
+  return TakeLastCount(self, count, scheduler)
+Observable.takeLast = takeLast
 
-def takeLastTime(self, time, scheduler=Scheduler.timeBasedOperation):
+def takeLastWithTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
   return TakeLastTime(self, time, scheduler)
-Observable.takeLastTime = takeLastTime
+Observable.takeLastWithTime = takeLastWithTime
 
-def takeLastBufferCount(self, count):
+def takeLastBuffer(self, count):
   assert isinstance(self, Observable)
 
-  return TakeLastBufferCount(self, countOrTime)
-Observable.takeLastBufferCount = takeLastBufferCount
+  return TakeLastBufferCount(self, count)
+Observable.takeLastBuffer = takeLastBuffer
 
-def takeLastBufferTime(self, time, scheduler=Scheduler.timeBasedOperation):
+def takeLastBufferWithTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
   return TakeLastBufferTime(self, time, scheduler)
-Observable.takeLastBufferTime = takeLastBufferTime
+Observable.takeLastBufferWithTime = takeLastBufferWithTime
 
 def window(self, count, skip=None):
   assert isinstance(self, Observable)
@@ -1134,43 +1121,68 @@ def selectEnumerate(self, selector):
   return Select(self, selector, True)
 Observable.selectEnumerate = selectEnumerate
 
-def selectMany(self, onNext, onError=noop, onCompleted=noop):
+def selectMany(self, onNext, onError=None, onCompleted=None):
   assert isinstance(self, Observable)
-  assert callable(onNext)
-  assert callable(onError)
-  assert callable(onCompleted)
 
-  if callable(onNext):
-    return SelectMany(self, onNext, onError, onCompleted, False)
-  else:
-    return SelectMany(self, onNext, onError, onCompleted, False)
+  on = onNext
+  oe = onError
+  oc = onCompleted
+
+  if not callable(onNext):
+    assert isinstance(onNext, Observable)
+    on = lambda _: onNext
+
+  if onError != None and not callable(onError):
+    assert isinstance(onError, Observable)
+    oe = lambda _: onError
+
+  if onCompleted != None and not callable(onCompleted):
+    assert isinstance(onCompleted, Observable)
+    oc = lambda: onCompleted
+
+  return SelectMany(self, on, oe, oc, False)
 Observable.selectMany = selectMany
 
 #inspect.getfullargspec(selector) but not working for partial
-def selectManyEnumerate(self, onNext, onError=noop, onCompleted=noop):
+def selectManyEnumerate(self, onNext, onError=None, onCompleted=None):
   assert isinstance(self, Observable)
-  assert callable(onNext)
-  assert callable(onError)
-  assert callable(onCompleted)
 
-  if callable(onNext):
-    return SelectMany(self, onNext, onError, onCompleted, True)
-  else:
-    return SelectMany(self, onNext, onError, onCompleted, True)
+  on = onNext
+  oe = onError
+  oc = onCompleted
+
+  if not callable(onNext):
+    assert isinstance(onNext, Observable)
+    on = lambda _, i: onNext
+
+  if onError != None and not callable(onError):
+    assert isinstance(onError, Observable)
+    oe = lambda _, i: onError
+
+  if onCompleted != None and not callable(onCompleted):
+    assert isinstance(onCompleted, Observable)
+    oc = lambda _: onCompleted
+
+  return SelectMany(self, on, oe, oc, True)
 Observable.selectManyEnumerate = selectManyEnumerate
 
-def skip(self, countOrTime, scheduler=Scheduler.timeBasedOperation):
+def skip(self, count):
+  assert isinstance(self, Observable)
+
+  if isinstance(self, SkipCount):
+    return self.omega(count)
+
+  return SkipCount(self, count)
+Observable.skip = skip
+
+def skipWithTime(self, time, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
-  if isinstance(self, SkipCount) or isinstance(self, SkipTime):
-    return self.omega(countOrTime)
+  if isinstance(self, SkipTime):
+    return self.omega(time)
 
-  if isinstance(countOrTime, int):
-    return SkipCount(self, countOrTime)
-  else:
-    return SkipTime(self, countOrTime, scheduler)
-Observable.skip = skip
+  return SkipTime(self, time, scheduler)
 
 def skipWhile(self, predicate):
   assert isinstance(self, Observable)
@@ -1186,17 +1198,23 @@ def skipWhileEnumerate(self, predicate):
   return SkipWhile(self, predicate, True)
 Observable.skipWhileEnumerate = skipWhileEnumerate
 
-def take(self, countOrTime):
+def take(self, count):
   assert isinstance(self, Observable)
 
-  if isinstance(self, TakeCount) or isinstance(self, TakeTime):
-    return self.omega(countOrTime)
+  if isinstance(self, TakeCount):
+    return self.omega(count)
 
-  if isinstance(countOrTime, int):
-    return TakeCount(self, countOrTime)
-  else:
-    return TakeTime(self, countOrTime)
+  return TakeCount(self, count)
 Observable.take = take
+
+def takeWithTime(self, time, scheduler=Scheduler.timeBasedOperation):
+  assert isinstance(self, Observable)
+  assert isinstance(scheduler, Scheduler)
+
+  if isinstance(self, TakeTime):
+    return self.omega(time)
+
+  return TakeTime(self, time, scheduler)
 
 def takeWhile(self, predicate):
   assert isinstance(self, Observable)

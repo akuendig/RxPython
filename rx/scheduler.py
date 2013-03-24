@@ -369,7 +369,6 @@ class DefaultScheduler(Scheduler):
 
     def run():
       action(state, cancel)
-
     thread = Thread(target=run)
     thread.start()
 

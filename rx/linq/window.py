@@ -4,8 +4,8 @@ from rx.observable import Producer
 from rx.subject import Subject
 from .addRef import AddRef
 from .sink import Sink
+from collections import deque
 from threading import RLock
-from queue import Queue
 
 
 class Window(Producer):
@@ -45,7 +45,7 @@ class Window(Producer):
       self.parent = parent
 
     def run(self):
-      self.queue = Queue()
+      self.queue = deque()
       self.n = 0
       self.m = SingleAssignmentDisposable()
       self.refCountDisposable = RefCountDisposable(self.m)
@@ -59,7 +59,7 @@ class Window(Producer):
 
     def createWindow(self):
       s = Subject()
-      self.queue.put(s)
+      self.queue.append(s)
       # AddRef was originally WindowObservable but this is just an alias for AddRef
       return AddRef(s, self.refCountDisposable)
 
@@ -70,7 +70,7 @@ class Window(Producer):
       c = self.n - self.parent.count + 1
 
       if c >= 0 and c % self.parent.skip == 0:
-        s = self.queue.get()
+        s = self.queue.popleft()
         s.onCompleted()
 
       self.n += 1
@@ -80,15 +80,15 @@ class Window(Producer):
         self.observer.onNext(newWindow)
 
     def onError(self, exception):
-      while not self.queue.empty():
-        self.queue.get().onError(exception)
+      while len(self.queue) > 0:
+        self.queue.popleft.onError(exception)
 
       self.observer.onError(exception)
       self.dispose()
 
     def onCompleted(self):
-      while not self.queue.empty():
-        self.queue.get().onCompleted()
+      while len(self.queue) > 0:
+        self.queue.popleft().onCompleted()
 
       self.observer.onCompleted()
       self.dispose()

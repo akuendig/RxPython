@@ -17,7 +17,7 @@ class TakeWhile(Producer):
     def __init__(self, parent, observer, cancel):
       super(TakeWhile.Sink, self).__init__(observer, cancel)
       self.parent = parent
-      self.running = False
+      self.running = True
       self.index = -1
 
     def onNext(self, value):
