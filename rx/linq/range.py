@@ -22,9 +22,15 @@ class Range(Producer):
       scheduler = self.parent.scheduler
 
       if scheduler.isLongRunning:
-        return scheduler.scheduleLongRunningWithState(0, self.loop)
+        return scheduler.scheduleLongRunningWithState(
+          0,
+          self.loop
+        )
       else:
-        return scheduler.scheduleRecursiveWithState(0, self.loopRec)
+        return scheduler.scheduleRecursiveWithState(
+          0,
+          self.loopRec
+        )
 
     def loop(self, i, cancel):
       while not cancel.isDisposed and i < self.parent.count:
@@ -38,7 +44,7 @@ class Range(Producer):
 
     def loopRec(self, i, recurse):
       if i < self.parent.count:
-        self.observer.onNext(i)
+        self.observer.onNext(self.parent.start + i)
         recurse(i + 1)
       else:
         self.observer.onCompleted()

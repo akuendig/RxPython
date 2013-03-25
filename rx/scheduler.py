@@ -4,7 +4,7 @@ from rx.internal import defaultNow, defaultSubComparer
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial as bind
-from queue import PriorityQueue
+from queue import Empty, PriorityQueue
 from threading import Thread, Timer, RLock
 from time import sleep
 
@@ -412,13 +412,13 @@ class VirtualTimeScheduler(Scheduler):
     return self.scheduleAbsoluteWithState(action, dueTime, Scheduler.invokeAction)
 
   def scheduleAbsoluteWithState(self, state, dueTime, action):
-    si = ScheduledItem(self, state, run, dueTime, self.comparer)
+    si = ScheduledItem(self, state, action, dueTime, self.comparer)
 
     self.queue.put(si)
 
     return si.disposable
 
-  def start(self, until):
+  def start(self, until=None):
     if not self.isEnabled:
       self.isEnabled = True
 
@@ -427,6 +427,7 @@ class VirtualTimeScheduler(Scheduler):
         nextIsTooLate = until != None and self.comparer(next.dueTime, until) > 0
 
         if next == None or nextIsTooLate:
+          self.queue.put(next)
           self.isEnabled = False
         else:
           if self.comparer(next.dueTime, self.clock) > 0:
@@ -461,18 +462,21 @@ class VirtualTimeScheduler(Scheduler):
 
   def getNext(self):
     while True:
-      next = self.queue.get_nowait()
+      next = None
 
-      if next == None:
+      try:
+        next = self.queue.get(True, 0)
+      except Empty:
         return None
-      elif next.isCancelled():
+
+      if next.isCancelled():
         continue
       else:
         return next
 
 
 class HistoricalScheduler(VirtualTimeScheduler):
-  """Provides a virtual time scheduler that uses Date for
+  """Provides a virtual time scheduler that uses number for
   absolute time and number for relative time."""
   def __init__(self, initialClock = 0, comparer = defaultSubComparer):
     super(HistoricalScheduler, self).__init__(initialClock, comparer)
@@ -483,7 +487,7 @@ class HistoricalScheduler(VirtualTimeScheduler):
     return absolute + relative
 
   def toDateTimeOffset(self, absolute):
-    return datetime.fromtimestamp(absolute)
+    return absolute
 
   def toRelative(self, timeSpan):
     return timeSpan

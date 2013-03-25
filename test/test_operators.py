@@ -3,343 +3,355 @@ import unittest
 # from rx.linq import Observable
 from rx.disposable import Disposable
 from rx.internal import Struct
-from rx.notification import Notification
 from rx.observable import Observable
-from rx.observer import Observer
 from rx.scheduler import Scheduler
 from rx.subject import Subject
+
+from test.reactive import OnNext, OnError, OnCompleted, TestObserver, TestScheduler, ReactiveTest
 
 def rep(value, count):
   return Observable.fromIterable([value]*count)
 
-def OnNext(value):
-  return Notification.createOnNext(value)
-
-def OnError(exception):
-  return Notification.createOnError(exception)
-
-def OnCompleted():
-  return Notification.createOnCompleted()
-
-class Recorder(Observer):
-  def __init__(self, source):
-    super(Recorder, self).__init__()
-    self.source = source
-    self.isStopped = False
-    self.messages = []
-
-  def onNext(self, value):
-    assert not self.isStopped
-    self.messages.append(value)
-
-  def onError(self, exception):
-    raise exception
-
-  def onCompleted(self):
-    self.isStopped = True
-
-  def materialize(self):
-    assert self.isStopped
-    return self.messages
-
-  def subscribe(self):
-    return self.source.materialize().subscribe(self)
-
-
-class ReactiveTest(unittest.TestCase):
-  def assertHasMessages(self, observable, *messages):
-    expected = list(messages)
-    actual = list(observable.materialize())
-
-    errorExpected = [x for x in expected if x.kind == Notification.KIND_ERROR]
-    errorActual = [x for x in actual if x.kind == Notification.KIND_ERROR]
-
-    if len(errorExpected) == 0 and len(errorActual) > 0:
-      raise errorActual[0].exception
-    elif len(errorExpected) == 1 and len(errorActual) == 1:
-      self.assertEqual(
-        errorExpected[0],
-        errorActual[0],
-        "Exceptions shoud match"
-      )
-
-    self.assertSequenceEqual(
-      list(map(lambda x: x.value, expected)),
-      list(map(lambda x: x.value, actual)),
-      "On next values of observables should match",
-      list
-    )
-
-    self.assertSequenceEqual(
-      expected,
-      actual,
-      "The observable should generate the correct messages sequence",
-      list
-    )
-
 class TestAggregation(ReactiveTest):
   def test_aggregate(self):
-    o = rep(5, 4)
-    s = o.aggregate(0, lambda acc, el: acc + el).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(20, s, "Accumulate should yield sum")
+    o = sched.start(lambda: xs.aggregate(0, lambda acc, el: acc + el))
+
+    self.assertHasSingleValue(o, 20, messages[-1][0],
+      "accumulate should yield result"
+    )
 
   def test_all_true(self):
-    o = rep(5, 4)
-    a = o.all(lambda x: x == 5).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertTrue(a, "all values should be equal to 5")
+    o = sched.start(lambda: xs.all(lambda x: x == 5))
+
+    self.assertHasSingleValue(o, True, messages[-1][0],
+      "all should test all values"
+    )
 
   def test_any_empty(self):
-    o = Observable.empty()
-    a = o.any().wait()
+    sched, xs, messages = self.simpleHot()
 
-    self.assertFalse(a, "all values should not be equal to 4")
+    o = sched.start(lambda: xs.any())
+
+    self.assertHasSingleValue(o, False, messages[-1][0],
+      "any on emtpy sequence should yield False"
+    )
 
   def test_any_value(self):
-    o = rep(5, 4)
-    a = o.any().wait()
+    sched = TestScheduler()
 
-    self.assertTrue(a, "all values should be equal to 5")
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
+
+    o = sched.start(lambda: xs.any())
+
+    self.assertHasSingleValue(o, True, messages[0][0],
+      "any without predicate and with elements should yield True"
+    )
 
   def test_any_predicate(self):
-    o = rep(5, 4)
-    a = o.any(lambda x: x == 3).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertFalse(a, "all values should not be equal to 3")
+    o = sched.start(lambda: xs.any(lambda x: x == 3))
+
+    self.assertHasSingleValue(o, False, messages[-1][0],
+      "any should test predicate on all values"
+    )
 
   def test_average(self):
-    o = rep(5, 4)
-    a = o.average().wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(5, a, "average sould be 5")
+    o = sched.start(lambda: xs.average())
+
+    self.assertHasSingleValue(o, 5, messages[-1][0],
+      "average should yield average"
+    )
 
   def test_contains_true(self):
-    o = rep(5, 4)
-    a = o.contains(5).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertTrue(a, "should contain 5")
+    o = sched.start(lambda: xs.contains(5))
+
+    self.assertHasSingleValue(o, True, messages[0][0],
+      "contains should find value"
+    )
 
   def test_contains_false(self):
-    o = rep(5, 4)
-    a = o.contains(3).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertFalse(a, "should not contain 3")
+    o = sched.start(lambda: xs.contains(3))
+
+    self.assertHasSingleValue(o, False, messages[-1][0],
+      "contains should not find non existent value"
+    )
 
   def test_count(self):
-    o = rep(5, 4)
-    a = o.count(lambda x: x == 5).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(4, a, "sequence should contain 4 elements")
+    o = sched.start(lambda: xs.count(lambda x: x == 5))
+
+    self.assertHasSingleValue(o, 4, messages[-1][0],
+      "count should count all values"
+    )
 
   def test_first_async(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.firstAsync(lambda x: x == 2).wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(2, a, "first 2 in sequence should be 2")
+    o = sched.start(lambda: xs.firstAsync(lambda x: x == 2))
+
+    self.assertHasSingleValue(o, 2, messages[1][0],
+      "first should yield first found value"
+    )
 
   def test_first_async_or_default(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.firstAsyncOrDefault(lambda x: x == 5, 7).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(7, a, "first 5 sould not be found, 7 sould be returned")
+    o = sched.start(lambda: xs.firstAsyncOrDefault(lambda x: x == 3, 7))
+
+    self.assertHasSingleValue(o, 7, messages[-1][0],
+      "firstOrDefault should yield default value if not found"
+    )
 
   def test_last_async(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.lastAsync().wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(1, a, "last value in sequence should be 1")
+    o = sched.start(lambda: xs.lastAsync())
+
+    self.assertHasSingleValue(o, 1, messages[3][0],
+      "lastAsync should yield last value"
+    )
 
   def test_last_async_or_default(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.lastAsyncOrDefault(lambda x: x == 5, 7).wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(7, a, "last 5 sould not be found, 7 sould be returned")
+    o = sched.start(lambda: xs.lastAsyncOrDefault(lambda x: x == 3, 7))
+
+    self.assertHasSingleValue(o, 7, messages[-1][0],
+      "lastAsyncOrDefault should yield default value if not found"
+    )
 
   def test_max(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.max().wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(3, a, "max value should be 3")
+    o = sched.start(lambda: xs.max())
+
+    self.assertHasSingleValue(o, 3, messages[-1][0],
+      "max should yield maximum"
+    )
 
   def test_max_by(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.maxBy(lambda x: -x).wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertSequenceEqual([1], a, "max inverse value should be 1")
+    o = sched.start(lambda: xs.maxBy(lambda x: -x))
+
+    self.assertHasSingleValue(o, [1], messages[-1][0],
+      "maxBy should yield list of max values by key"
+    )
 
   def test_min(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.min().wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(1, a, "min value should be 1")
+    o = sched.start(lambda: xs.min())
+
+    self.assertHasSingleValue(o, 1, messages[-1][0],
+      "min should yield minimum"
+    )
 
   def test_min_by(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.minBy(lambda x: -x).wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertSequenceEqual([3], a, "min inverse value should be 3")
+    o = sched.start(lambda: xs.minBy(lambda x: -x))
+
+    self.assertHasSingleValue(o, [3], messages[-1][0],
+      "minBy should yield list of min values by key"
+    )
 
   def test_sequence_equal(self):
-    o1 = rep(5, 4)
-    o2 = rep(5, 4)
-    a = o1.sequenceEqual(o2).wait()
+    sched = TestScheduler()
 
-    self.assertTrue(a, "sequences should be equal")
+    xs = sched.createHotObservable(
+      (210, OnNext(1)),
+      (230, OnCompleted())
+    )
+
+    ys = sched.createHotObservable(
+      (220, OnNext(1)),
+      (240, OnCompleted())
+    )
+
+    o = sched.start(lambda: xs.sequenceEqual(ys))
+
+    self.assertHasSingleValue(o, True, 240,
+      "sequenceEqual should yield True on equal sequences"
+    )
 
   def test_single_async(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.singleAsync(lambda x: x == 2).wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(2, a, "single 2 in sequence should be 2")
+    o = sched.start(lambda: xs.singleAsync(lambda x: x == 2))
+
+    self.assertHasSingleValue(o, 2, messages[-1][0],
+      "single should yield single value"
+    )
 
   def test_single_async_or_default(self):
-    o = Observable.fromIterable([3, 2, 1])
-    a = o.singleAsyncOrDefault(lambda x: x == 5, 7).wait()
+    sched, xs, messages = self.simpleHot(3, 2, 1)
 
-    self.assertEqual(7, a, "single 5 sould not be found, 7 sould be returned")
+    o = sched.start(lambda: xs.singleAsyncOrDefault(lambda x: x == 5, 7))
+
+    self.assertHasSingleValue(o, 7, messages[-1][0],
+      "singleAsyncOrDefault should yield default value if not found"
+    )
 
   def test_sum(self):
-    o = rep(5, 4)
-    a = o.sum().wait()
+    sched, xs, messages = self.simpleHot(5, 5, 5, 5)
 
-    self.assertEqual(20, a, "sum should be 20")
+    o = sched.start(lambda: xs.sum())
+
+    self.assertHasSingleValue(o, 20, messages[-1][0],
+      "sum should yield sum"
+    )
 
   def test_to_list(self):
-    o = rep(5, 4)
-    a = o.toList().wait()
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    self.assertSequenceEqual([5, 5, 5, 5], a, "to list should be [5, 5, 5, 5]", list)
+    o = sched.start(lambda: xs.toList())
+
+    self.assertHasSingleValue(o, [1, 2, 3], messages[-1][0],
+      "toList should yield list of all values"
+    )
 
   def test_to_dictionary(self):
-    o = Observable.fromIterable([
+    sched, xs, messages = self.simpleHot(
       ('a', 1),
       ('b', 1)
-    ])
-    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).wait()
+    )
 
-    self.assertEqual({'a': 1, 'b': 1}, a, "dictionary should contain last values for each key")
+    o = sched.start(lambda: xs.toDictionary(lambda x: x[0], lambda x: x[1]))
+
+    self.assertHasSingleValue(o, {'a': 1, 'b': 1}, messages[-1][0],
+      "toDictionary should yield dictionary of all values"
+    )
 
   def test_to_dictionary_duplicate(self):
-    o = Observable.fromIterable([
+    sched, xs, messages = self.simpleHot(
       ('a', 1),
       ('a', 2),
       ('b', 1)
-    ])
-    a = o.toDictionary(lambda x: x[0], lambda x: x[1]).wait
+    )
 
-    self.assertRaisesRegex(Exception, "Duplicate key", a)
+    o = sched.start(lambda: xs.toDictionary(lambda x: x[0], lambda x: x[1]))
+
+    self.assertHasError(
+      o,
+      "Duplicate key 'a'",
+      messages[1][0],
+      "toDictionary should yield error on duplicate key"
+    )
 
 
 class TestBinding(ReactiveTest):
   def test_multicast(self):
-    state = {
-      'isSet1': False,
-      'isSet2': False
-    }
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
-    def onNext1(_):
-      state['isSet1'] = True
-    def onNext2(_):
-      state['isSet2'] = True
+    xs = xs.multicast(Subject())
+    sched.scheduleAbsolute(215, lambda: xs.connect())
 
-    s = Subject()
-    s.subscribe(onNext1)
+    o = sched.start(lambda: xs)
 
-    o = rep(5, 4).multicast(s)
-    o.subscribe(onNext2)
-
-    self.assertFalse(state['isSet1'], "Subject should not be called before connecting")
-    self.assertFalse(state['isSet2'], "OnNext should not be called before connecting")
-
-    o.connect()
-    self.assertTrue(state['isSet1'], "Subject should be called on connecting")
-    self.assertTrue(state['isSet2'], "OnNext should be called on connecting")
+    self.assertHasValues(o, [
+        (220, 2),
+        (230, 3),
+        (240, 4),
+        (250, 5),
+      ],
+      messages[-1][0],
+      "multicast should wait for connect call"
+    )
 
   def test_multicast_individual(self):
-    state = {
-      'isSet1': False,
-      'isSet2': False,
-      'value1': None,
-      'value2': None
-    }
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
-    def onNext1(value):
-      state['isSet1'] = True
-      state['value1'] = value
-    def onNext2(value):
-      state['isSet2'] = True
-      state['value2'] = value
+    o = sched.start(
+      lambda: xs.multicastIndividual(
+        lambda: Subject(),
+        lambda xs: xs.zip(xs).select(sum)
+      )
+    )
 
-    s = Subject()
-    s.subscribe(onNext1)
-
-    o = rep(5, 4).multicastIndividual(lambda: s, lambda xs: xs.count())
-
-    self.assertFalse(state['isSet1'], "Subject should not be called before connecting")
-    self.assertFalse(state['isSet2'], "OnNext should not be called before connecting")
-
-    o.subscribe(onNext2)
-    o.wait()
-
-    self.assertTrue(state['isSet1'], "Subject should be called on connecting")
-    self.assertTrue(state['isSet2'], "OnNext should be called on connecting")
-
-    self.assertEqual(5, state['value1'], "value should be count")
-    self.assertEqual(4, state['value2'], "value should be 5")
-
+    self.assertHasValues(o, [
+        (210, 2),
+        (220, 4),
+        (230, 6),
+        (240, 8),
+        (250, 10),
+      ],
+      messages[-1][0],
+      "multicastIndividual should apply selector"
+    )
 
   def test_publish(self):
-    state = {
-      'isSet1': False,
-      'value1': None,
-    }
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (190, OnNext(1)),
+      (210, OnNext(1)),
+      (220, OnNext(1))
+    )
 
-    def onNext1(value):
-      state['isSet1'] = True
-      state['value1'] = value
+    xs = xs.publish(5)
+    sched.scheduleAbsolute(215, lambda: xs.connect())
 
-    o = Observable.empty().publish(5)
+    o = sched.start(
+      lambda: xs
+    )
 
-    self.assertFalse(state['isSet1'], "Subject should not be called before connecting")
+    self.assertHasValues(o, [
+        (200, 5),
+        (220, 1),
+      ],
+      None,
+      "publish should send initial value on subscribe, ignore values before connect, send values after connct"
+    )
 
-    o.subscribe(onNext1)
-    o.connect()
-    o.lastOrDefault()
+  def test_publish_individual(self):
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
-    self.assertTrue(state['isSet1'], "Subject should be called on connecting")
-    self.assertEqual(5, state['value1'], "value should be count")
+    o = sched.start(
+      lambda: xs.publishIndividual(
+        lambda xs: xs.zip(xs).select(sum)
+      )
+    )
 
-  def test_publish_selector(self):
-    state = {
-      'isSet1': False,
-      'value1': None,
-    }
-
-    def onNext1(value):
-      state['isSet1'] = True
-      state['value1'] = value
-
-    o = rep(5, 4).publishIndividual(lambda xs: xs.count())
-
-    self.assertFalse(state['isSet1'], "Subject should not be called before connecting")
-
-    o.subscribe(onNext1)
-    o.wait()
-
-    self.assertTrue(state['isSet1'], "Subject should be called on connecting")
-    self.assertEqual(4, state['value1'], "value should be count")
+    self.assertHasValues(o, [
+        (210, 2),
+        (220, 4),
+        (230, 6),
+        (240, 8),
+        (250, 10),
+      ],
+      messages[-1][0],
+      "publishIndividual should apply the selector and not need a connect"
+    )
 
   def test_publish_last(self):
-    o = Observable.fromIterable([1, 2, 3]).publishLast()
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
-    o.connect()
+    xs = xs.publishLast()
+    sched.scheduleAbsolute(215, lambda: xs.connect())
 
-    a1 = o.first()
-    a2 = o.last()
+    o = sched.start(
+      lambda: xs
+    )
+    endAt = messages[-1][0]
 
-    self.assertEqual(3, a1, "first should be 3")
-    self.assertEqual(3, a2, "last should be 3")
+    self.assertHasValues(o, [
+        (endAt, 5)
+      ],
+      endAt,
+      "publishLast should wait for connect call and the return last value"
+    )
 
   def test_ref_count(self):
     state = Struct(count=0)
@@ -362,21 +374,25 @@ class TestBinding(ReactiveTest):
     self.assertEqual(0, state.count, "there should be no subscription")
 
   def test_replay(self):
-    s = Subject()
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
-    o = s.replay()
-    o.connect()
+    xs = xs.replay()
+    sched.scheduleAbsolute(215, lambda: xs.connect())
 
-    s.onNext(1)
-    s.onNext(2)
-    s.onNext(3)
-    s.onCompleted()
+    o = sched.start(
+      lambda: xs,
+      subscribed=250
+    )
 
-    a1 = o.first()
-    a2 = o.last()
-
-    self.assertEqual(1, a1, "first should be 1")
-    self.assertEqual(3, a2, "last should be 3")
+    self.assertHasValues(o, [
+        (250, 2),
+        (250, 3),
+        (250, 4),
+        (250, 5)
+      ],
+      messages[-1][0],
+      "replay should replay all values since subscribe"
+    )
 
 
 class TestBlocking(ReactiveTest):
@@ -584,47 +600,76 @@ class TestCreation(ReactiveTest):
     )
 
   def test_range(self):
-    self.assertHasMessages(
-      Observable.range(1, 3),
-      OnNext(0),
-      OnNext(1),
-      OnNext(2),
-      OnCompleted()
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.range(1, 3)
+    )
+
+    self.assertHasValues(o, [
+        (200, 1),
+        (200, 2),
+        (200, 3),
+      ],
+      200,
+      "range should range over values"
     )
 
   def test_repeat_value(self):
-    self.assertHasMessages(
-      Observable.repeatValue(5, 4),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnCompleted()
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.repeatValue(5, 4)
     )
 
-  def test_return(self):
-    self.assertHasMessages(
-      Observable.returnValue(5),
-      OnNext(5),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (200, 5),
+        (200, 5),
+        (200, 5),
+        (200, 5),
+      ],
+      200,
+      "repeat should repeat value"
+    )
+
+  def test_return_value(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.returnValue(5)
+    )
+
+    self.assertHasValues(o, [
+        (200, 5),
+      ],
+      200,
+      "return should return value"
     )
 
   def test_throw(self):
-    ex = Exception("")
+    ex = Exception("Test Exception")
+    sched = TestScheduler()
 
-    self.assertHasMessages(
-      Observable.throw(ex),
-      OnError(ex)
+    o = sched.start(
+      lambda: Observable.throw(ex)
+    )
+
+    self.assertHasError(
+      o,
+      "Test Exception",
+      200,
+      "throw should yield error"
     )
 
   def test_using(self):
+    sched = TestScheduler()
+
     def dispose():
       state.resourceDisposed = True
 
     state = Struct(
       resourceCreated=False,
       resourceDisposed=False,
-      resourceWasState=False,
       dispose=dispose
     )
 
@@ -633,40 +678,47 @@ class TestCreation(ReactiveTest):
       return state
 
     def createObservable(resource):
-      state.resourceWasState = resource == state
-
       def subscribe(observer):
+        observer.onNext(resource)
+        observer.onCompleted()
         return Disposable.empty()
 
+      self.assertEqual(state, resource, "using should foreward created resource to observable factory")
       return Observable.create(subscribe)
 
-    with Observable.using(createResource, createObservable).subscribe():
-      self.assertTrue(state.resourceCreated, "using should use resource factory")
-      self.assertTrue(state.resourceWasState, "using should foreward created resource to observable factory")
-
-    self.assertTrue(state.resourceDisposed, "using should dispose resource")
-
-  def test_from_iterable(self):
-    values = [1, 2, 3]
-
-    self.assertHasMessages(
-      Observable.fromIterable(values),
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.using(createResource, createObservable)
     )
 
-    # We do it twice to test if we can reiterate the iterable
-    self.assertHasMessages(
-      Observable.fromIterable(values),
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnCompleted()
+    self.assertTrue(state.resourceCreated, "using should use resource factory")
+    self.assertTrue(state.resourceDisposed, "using should dispose resource")
+
+    self.assertHasSingleValue(
+      o,
+      state,
+      200,
+      "using should subscribe to the created observable"
+    )
+
+  def test_from_iterable(self):
+    sched = TestScheduler()
+    values = [1, 2, 3]
+
+    o = sched.start(
+      lambda: Observable.fromIterable(values)
+    )
+
+    self.assertHasValues(o, [
+        (200, 1),
+        (200, 2),
+        (200, 3),
+      ],
+      200,
+      "fromIterable should yield all values"
     )
 
   def test_from_event(self):
+    sched = TestScheduler()
     state = Struct(
       handler=None,
       receivedValue=None
@@ -680,17 +732,18 @@ class TestCreation(ReactiveTest):
       self.assertIs(state.handler, h, "fromEvent should remove the correct handler")
       state.handler = None
 
-    def onNext(value):
-      state.receivedValue = value
+    sched.scheduleAbsolute(210, lambda: state.handler(4))
 
-    o = Observable.fromEvent(addHandler, removeHandler)
+    o = sched.start(
+      lambda: Observable.fromEvent(addHandler, removeHandler)
+    )
 
-    with o.subscribe(onNext, self.fail):
-      self.assertIsNotNone(state.handler, "fromEvent should attach a handler")
-      state.handler(5)
-
-    self.assertEqual(5, state.receivedValue, "fromEvent should foreward event value")
-    self.assertIsNone(state.handler, "fromEvent should remove the handler")
+    self.assertHasValues(o, [
+        (210, 4),
+      ],
+      None,
+      "fromEvent should yield all values"
+    )
 
 
 class TestImperative(ReactiveTest):
@@ -771,7 +824,7 @@ class TestMultiple(ReactiveTest):
     s1 = Subject()
     s2 = Subject()
 
-    r = Recorder(s1.amb(s2))
+    r = TestObserver(s1.amb(s2))
 
     with r.subscribe():
       s1.onNext(4)
@@ -797,7 +850,7 @@ class TestMultiple(ReactiveTest):
       return Observable.throw(ex).startWith(5)
 
     s = Subject()
-    r = Recorder(s.catchException(handler))
+    r = TestObserver(s.catchException(handler))
 
     with r.subscribe():
       s.onNext(4)
@@ -829,7 +882,7 @@ class TestMultiple(ReactiveTest):
     s2 = Subject()
 
     o = Observable.combineLatest(s1, s2)
-    r = Recorder(o)
+    r = TestObserver(o)
 
     with r.subscribe():
       s1.onNext(5)
@@ -888,7 +941,7 @@ class TestMultiple(ReactiveTest):
     s1 = Subject()
     s2 = Subject()
 
-    r = Recorder(Observable.merge(Observable.fromIterable([s1, s2])))
+    r = TestObserver(Observable.merge(Observable.fromIterable([s1, s2])))
 
     with r.subscribe():
       s1.onNext(3)
@@ -914,7 +967,7 @@ class TestMultiple(ReactiveTest):
       Observable.returnValue(4),
     ]
 
-    r = Recorder(Observable.onErrorResumeNext(os))
+    r = TestObserver(Observable.onErrorResumeNext(os))
 
     with r.subscribe():
       pass
@@ -929,7 +982,7 @@ class TestMultiple(ReactiveTest):
     s1 = Subject()
     s2 = Subject()
 
-    r = Recorder(s1.skipUntil(s2))
+    r = TestObserver(s1.skipUntil(s2))
 
     with r.subscribe():
       s1.onNext(1)
@@ -948,7 +1001,7 @@ class TestMultiple(ReactiveTest):
     s1 = Subject()
     s2 = Subject()
 
-    r = Recorder(s.switch())
+    r = TestObserver(s.switch())
 
     with r.subscribe():
       s.onNext(s1)
@@ -979,7 +1032,7 @@ class TestMultiple(ReactiveTest):
     s1 = Subject()
     s2 = Subject()
 
-    r = Recorder(s1.takeUntil(s2))
+    r = TestObserver(s1.takeUntil(s2))
 
     with r.subscribe():
       s1.onNext(1)
@@ -997,7 +1050,7 @@ class TestMultiple(ReactiveTest):
     o1 = Observable.fromIterable([1, 2])
     o2 = Observable.fromIterable([1, 2, 3])
 
-    r = Recorder(Observable.zip(o1, o2))
+    r = TestObserver(Observable.zip(o1, o2))
 
     with r.subscribe():
       pass
@@ -1014,7 +1067,7 @@ class TestSingle(ReactiveTest):
   def test_as_observable(self):
     s = Subject()
 
-    r = Recorder(s.asObservable())
+    r = TestObserver(s.asObservable())
 
     with r.subscribe():
       s.onNext(4)
@@ -1028,7 +1081,7 @@ class TestSingle(ReactiveTest):
 
   def test_buffer(self):
     s = Subject()
-    r = Recorder(s.buffer(2))
+    r = TestObserver(s.buffer(2))
 
     with r.subscribe():
       s.onNext(1)
@@ -1051,7 +1104,7 @@ class TestSingle(ReactiveTest):
       OnError(ex)
     ])
 
-    r = Recorder(o.dematerialize())
+    r = TestObserver(o.dematerialize())
 
     with r.subscribe():
       pass
@@ -1064,7 +1117,7 @@ class TestSingle(ReactiveTest):
 
   def test_distinct_until_changed(self):
     s = Subject()
-    r = Recorder(s.distinctUntilChanged())
+    r = TestObserver(s.distinctUntilChanged())
 
     with r.subscribe():
       s.onNext(4)
@@ -1096,7 +1149,7 @@ class TestSingle(ReactiveTest):
       state.onCompletedCalled = True
 
     o = Observable.returnValue(5)
-    r = Recorder(o.do(onNext, onCompleted=onCompleted))
+    r = TestObserver(o.do(onNext, onCompleted=onCompleted))
 
     with r.subscribe():
       pass
@@ -1111,8 +1164,8 @@ class TestSingle(ReactiveTest):
     def fin():
       state.count += 1
 
-    r1 = Recorder(Observable.returnValue(4).doFinally(fin))
-    r2 = Recorder(Observable.throw(Exception("Test Exception")).doFinally(fin))
+    r1 = TestObserver(Observable.returnValue(4).doFinally(fin))
+    r2 = TestObserver(Observable.throw(Exception("Test Exception")).doFinally(fin))
 
     with r1.subscribe():
       pass
@@ -1124,7 +1177,7 @@ class TestSingle(ReactiveTest):
 
   def test_ignore_elements(self):
     s = Subject()
-    r = Recorder(s.ignoreElements())
+    r = TestObserver(s.ignoreElements())
 
     with r.subscribe():
       s.onNext(4)
@@ -1137,7 +1190,7 @@ class TestSingle(ReactiveTest):
 
   def test_materialize(self):
     s = Subject()
-    r = Recorder(s.materialize())
+    r = TestObserver(s.materialize())
 
     with r.subscribe():
       s.onNext(5)
@@ -1152,7 +1205,7 @@ class TestSingle(ReactiveTest):
 
   def test_repeat_self(self):
     o = Observable.returnValue(4)
-    r = Recorder(o.repeatSelf(2))
+    r = TestObserver(o.repeatSelf(2))
 
     with r.subscribe():
       pass
@@ -1176,7 +1229,7 @@ class TestSingle(ReactiveTest):
       else:
         observer.onError(Exception("Test Exception"))
 
-    r = Recorder(Observable.create(subscribe).retry())
+    r = TestObserver(Observable.create(subscribe).retry())
 
     with r.subscribe():
       pass
@@ -1189,7 +1242,7 @@ class TestSingle(ReactiveTest):
 
   def test_scan(self):
     s = Subject()
-    r = Recorder(s.scan(0, lambda acc, x: acc + x))
+    r = TestObserver(s.scan(0, lambda acc, x: acc + x))
 
     with r.subscribe():
       s.onNext(1)
@@ -1207,7 +1260,7 @@ class TestSingle(ReactiveTest):
 
   def test_skip_last(self):
     s = Subject()
-    r = Recorder(s.skipLast(2))
+    r = TestObserver(s.skipLast(2))
 
     with r.subscribe():
       s.onNext(1)
@@ -1229,7 +1282,7 @@ class TestSingle(ReactiveTest):
 
   def test_start_with(self):
     s = Subject()
-    r = Recorder(s.startWith(1, 2))
+    r = TestObserver(s.startWith(1, 2))
 
     with r.subscribe():
       s.onNext(5)
@@ -1245,7 +1298,7 @@ class TestSingle(ReactiveTest):
 
   def test_take_last(self):
     s = Subject()
-    r = Recorder(s.takeLast(2))
+    r = TestObserver(s.takeLast(2))
 
     with r.subscribe():
       s.onNext(1)
@@ -1265,7 +1318,7 @@ class TestSingle(ReactiveTest):
 
   def test_take_last_buffer(self):
     s = Subject()
-    r = Recorder(s.takeLastBuffer(2))
+    r = TestObserver(s.takeLastBuffer(2))
 
     with r.subscribe():
       s.onNext(3)
@@ -1283,7 +1336,7 @@ class TestSingle(ReactiveTest):
   def test_window(self):
     s1 = Subject()
     s2 = Subject()
-    r = Recorder(s2)
+    r = TestObserver(s2)
 
     s1.window(2, 1).subscribe(
       lambda x: x.toList().subscribe(s2.onNext),
@@ -1310,7 +1363,7 @@ class TestSingle(ReactiveTest):
 class TestStandardSequence(ReactiveTest):
   def test_default_if_empty(self):
     s = Subject()
-    r = Recorder(s.defaultIfEmpty(5))
+    r = TestObserver(s.defaultIfEmpty(5))
 
     with r.subscribe():
       s.onCompleted()
@@ -1323,7 +1376,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_distinct(self):
     s = Subject()
-    r = Recorder(s.distinct())
+    r = TestObserver(s.distinct())
 
     with r.subscribe():
       s.onNext(4)
@@ -1342,7 +1395,7 @@ class TestStandardSequence(ReactiveTest):
   def test_group_by(self):
     s1 = Subject()
     s2 = Subject()
-    r = Recorder(s2)
+    r = TestObserver(s2)
 
     s1.groupBy(
       lambda x: x['k'], lambda x: x['v']
@@ -1370,7 +1423,7 @@ class TestStandardSequence(ReactiveTest):
   def test_group_by_until(self):
     s1 = Subject()
     s2 = Subject()
-    r = Recorder(s2)
+    r = TestObserver(s2)
 
     s1.groupByUntil(
       lambda x: x['k'],
@@ -1413,7 +1466,7 @@ class TestStandardSequence(ReactiveTest):
       s3.onCompleted
     )
 
-    r = Recorder(s3)
+    r = TestObserver(s3)
 
     with r.subscribe():
       s1.onNext(1)
@@ -1440,7 +1493,7 @@ class TestStandardSequence(ReactiveTest):
       lambda left, right: (left, right)
     )
 
-    r = Recorder(o)
+    r = TestObserver(o)
 
     with r.subscribe():
       s1.onNext(1)
@@ -1458,7 +1511,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_of_type(self):
     s = Subject()
-    r = Recorder(s.ofType(int))
+    r = TestObserver(s.ofType(int))
 
     with r.subscribe():
       s.onNext("Hello")
@@ -1473,7 +1526,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_select(self):
     s = Subject()
-    r = Recorder(s.select(lambda x: x * x))
+    r = TestObserver(s.select(lambda x: x * x))
 
     with r.subscribe():
       s.onNext(2)
@@ -1489,7 +1542,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_select_enumerate(self):
     s = Subject()
-    r = Recorder(s.selectEnumerate(lambda x, i: x * i))
+    r = TestObserver(s.selectEnumerate(lambda x, i: x * i))
 
     with r.subscribe():
       s.onNext(2)
@@ -1506,7 +1559,7 @@ class TestStandardSequence(ReactiveTest):
   def test_select_many(self):
     ex = Exception("Test Exception")
     s = Subject()
-    r = Recorder(s.selectMany(
+    r = TestObserver(s.selectMany(
       lambda x: Observable.returnValue(x*x),
       lambda ex: Observable.throw(ex)
     ))
@@ -1526,7 +1579,7 @@ class TestStandardSequence(ReactiveTest):
   def test_select_many_ignore(self):
     ex = Exception("Test Exception")
     s = Subject()
-    r = Recorder(s.selectMany(
+    r = TestObserver(s.selectMany(
       Observable.returnValue(1423)
     ))
 
@@ -1544,7 +1597,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_skip(self):
     s = Subject()
-    r = Recorder(s.skip(3))
+    r = TestObserver(s.skip(3))
 
     with r.subscribe():
       s.onNext(1)
@@ -1561,7 +1614,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_skip_while(self):
     s = Subject()
-    r = Recorder(s.skipWhile(lambda x: x < 4))
+    r = TestObserver(s.skipWhile(lambda x: x < 4))
 
     with r.subscribe():
       s.onNext(1)
@@ -1578,7 +1631,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_skip_while_enumerate(self):
     s = Subject()
-    r = Recorder(s.skipWhileEnumerate(lambda x, i: i < 3))
+    r = TestObserver(s.skipWhileEnumerate(lambda x, i: i < 3))
 
     with r.subscribe():
       s.onNext(1)
@@ -1595,7 +1648,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_take(self):
     s = Subject()
-    r = Recorder(s.take(3))
+    r = TestObserver(s.take(3))
 
     with r.subscribe():
       s.onNext(1)
@@ -1614,7 +1667,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_take_while(self):
     s = Subject()
-    r = Recorder(s.takeWhile(lambda x: x < 4))
+    r = TestObserver(s.takeWhile(lambda x: x < 4))
 
     with r.subscribe():
       s.onNext(1)
@@ -1633,7 +1686,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_take_while_enumerate(self):
     s = Subject()
-    r = Recorder(s.takeWhileEnumerate(lambda x, i: i < 3))
+    r = TestObserver(s.takeWhileEnumerate(lambda x, i: i < 3))
 
     with r.subscribe():
       s.onNext(1)
@@ -1652,7 +1705,7 @@ class TestStandardSequence(ReactiveTest):
 
   def test_where(self):
     s = Subject()
-    r = Recorder(s.where(lambda x: x < 3))
+    r = TestObserver(s.where(lambda x: x < 3))
 
     with r.subscribe():
       s.onNext(1)
@@ -1669,7 +1722,30 @@ class TestStandardSequence(ReactiveTest):
     )
 
 
+class TestTime(ReactiveTest):
+  def test_buffer_with_time(self):
+    sched = TestScheduler()
 
+    o = sched.createHotObservable(
+      (190, OnNext(1)),
+      (210, OnNext(2)),
+      (220, OnNext(3)),
+      (230, OnNext(4)),
+      (240, OnCompleted())
+    )
+
+    observer = sched.start(lambda: o.bufferWithTime(20, 10, sched))
+
+    self.assertHasValues(
+      observer, [
+        (220, [2, 3]),
+        (230, [3, 4]),
+        (240, [4]),
+        (240, [])
+      ],
+      240,
+      "bufferWithTime should buffer correctly"
+    )
 
 
 

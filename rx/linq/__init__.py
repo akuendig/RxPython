@@ -1237,8 +1237,18 @@ def where(self, predicate):
   if isinstance(self, Where):
     return self.omega(predicate)
   else:
-    return Where(self, predicate)
+    return Where(self, predicate, False)
 Observable.where = where
+
+def whereEnumerate(self, predicate):
+  assert isinstance(self, Observable)
+  assert callable(predicate)
+
+  if isinstance(self, Where):
+    return self.omega(predicate)
+  else:
+    return Where(self, predicate, True)
+Observable.whereEnumerate = whereEnumerate
 
 ####################
 #       Time       #
@@ -1250,7 +1260,7 @@ def bufferWithTime(self, timeSpan, timeShift=None, scheduler=Scheduler.timeBased
 
   if timeShift == None:
     timeShift = timeSpan
-  return Buffer(timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
+  return Buffer(self, timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
 Observable.bufferWithTime = bufferWithTime
 
 def bufferWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeBasedOperation):
@@ -1259,7 +1269,7 @@ def bufferWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeB
 
   if count == None:
     count = timeSpan
-  return Buffer(timeSpan=timeSpan, count=count, scheduler=scheduler)
+  return Buffer(self, timeSpan=timeSpan, count=count, scheduler=scheduler)
 Observable.bufferWithTimeAndCount = bufferWithTimeAndCount
 
 def delayRelative(self, dueTime, scheduler=Scheduler.timeBasedOperation):

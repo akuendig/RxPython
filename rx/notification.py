@@ -39,6 +39,9 @@ class OnNextNotification(Notification):
     self.exception = None
     self.kind = Notification.KIND_NEXT
 
+  def __repr__(self):
+    return "OnNextNotification(%s)" % self.value
+
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
       return observerOrOnNext(self.value)
@@ -55,6 +58,9 @@ class OnErrorNotification(Notification):
     self.exception = exception
     self.kind = Notification.KIND_ERROR
 
+  def __repr__(self):
+    return "OnErrorNotification(%s)" % self.exception
+
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
       return onError(self.exception)
@@ -70,6 +76,9 @@ class OnCompletedNotification(Notification):
     self.hasValue = False
     self.exception = None
     self.kind = Notification.KIND_COMPLETED
+
+  def __repr__(self):
+    return "OnCompletedNotification()"
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):

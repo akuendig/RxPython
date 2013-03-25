@@ -249,7 +249,7 @@ class AsyncSubject(Observable, Observer):
 
   def unsubscribe(self, observer):
     with self.gate:
-      if observer in self.observer:
+      if observer in self.observers:
         self.observers.remove(observer)
 
   def dispose(self):

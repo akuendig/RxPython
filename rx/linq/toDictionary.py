@@ -32,7 +32,7 @@ class ToDictionary(Producer):
         return
 
       if key in self.dictionary:
-        self.observer.onError(Exception("Duplicate key %s"%key))
+        self.observer.onError(Exception("Duplicate key '%s'"%key))
         self.dispose()
         return
 
