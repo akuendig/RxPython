@@ -851,9 +851,12 @@ def concat(*sources):
 Observable.concat = concat
 
 def merge(sourcesObservable, maxConcurrency=0):
-  assert isinstance(sourcesObservable, Observable)
+  if isinstance(sourcesObservable, Observable):
+    return Merge(sourcesObservable, maxConcurrency)
+  else:
+    sourcesObservable = fromIterable(sourcesObservable)
+    return Merge(sourcesObservable, maxConcurrency)
 
-  return Merge(sourcesObservable, maxConcurrency)
 Observable.merge = merge
 
 def onErrorResumeNext(*sources):

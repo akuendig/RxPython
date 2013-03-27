@@ -33,8 +33,8 @@ class SkipWhile(Producer):
           self.dispose()
           return
 
-        if self.running:
-          self.observer.onNext(value)
+      if self.running:
+        self.observer.onNext(value)
 
     def onError(self, exception):
       self.observer.onError(exception)

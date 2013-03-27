@@ -1,5 +1,5 @@
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
-from rx.observable import Producer
+from rx.observable import Observable, Producer
 from rx.observer import Observer
 from .sink import Sink
 from threading import RLock
@@ -58,18 +58,13 @@ class SelectMany(Producer):
           self.observer.onError(e)
           self.dispose()
 
-      iterator = None
-
-      try:
-        iterator = iter(inner)
-      except TypeError:
-        # not iterable, assume observable
+      if isinstance(inner, Observable):
         self.subscribeInner(inner)
         return
 
       # iterable
       try:
-        for current in iterator:
+        for current in inner:
           self.observer.onNext(current)
       except Exception as e:
         self.observer.onError(e)

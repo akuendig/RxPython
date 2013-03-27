@@ -41,12 +41,12 @@ class GroupJoin(Producer):
       self.rightID = 0
       self.rightMap = {}
 
-      leftSubscription.disposable = self.parent.left.subscribeSafe(self.Lambda(self, leftSubscription))
-      rightSubscription.disposable = self.parent.right.subscribeSafe(self.Roh(self, rightSubscription))
+      leftSubscription.disposable = self.parent.left.subscribeSafe(self.Left(self, leftSubscription))
+      rightSubscription.disposable = self.parent.right.subscribeSafe(self.Right(self, rightSubscription))
 
       return self.refCount
 
-    class Lambda(Observer):
+    class Left(Observer):
       def __init__(self, parent, subscription):
         self.parent = parent
         self.subscription = subscription
@@ -127,9 +127,9 @@ class GroupJoin(Producer):
         def onCompleted(self):
           self.parent.expire(self.resourceId, self.group, self.resource)
       #end Delta
-    #end Lambda
+    #end Left
 
-    class Roh(Observer):
+    class Right(Observer):
       def __init__(self, parent, subscription):
         self.parent = parent
         self.subscription = subscription
@@ -192,6 +192,6 @@ class GroupJoin(Producer):
         def onCompleted(self):
           self.parent.expire(self.resourceId, self.resource)
       #end Delta
-    #end Roh
+    #end Right
   #end Sink
 #end GroupJoin

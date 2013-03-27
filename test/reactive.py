@@ -86,29 +86,6 @@ class TestScheduler(HistoricalScheduler):
       ))
 
 
-class TestObserver(Observer):
-  def __init__(self, source):
-    super(TestObserver, self).__init__()
-    self.source = source
-    self.isStopped = False
-    self.messages = []
-
-  def onNext(self, value):
-    assert not self.isStopped
-    self.messages.append(OnNext(value))
-
-  def onError(self, exception):
-    self.isStopped = True
-    self.messages.append(OnError(exception))
-
-  def onCompleted(self):
-    self.isStopped = True
-    self.messages.append(OnCompleted())
-
-  def subscribe(self):
-    return self.source.subscribe(self)
-
-
 class HotObservable(Observable):
   def __init__(self, scheduler, messages):
     super(HotObservable, self).__init__()
@@ -204,9 +181,30 @@ class ReactiveTest(unittest.TestCase):
       messages
     )
 
+  def simpleCold(self, *values):
+    scheduler = TestScheduler()
+
+    def gen(start):
+      while True:
+        yield start
+        start += 10
+
+    messages = list(
+      zip(
+        gen(10),
+        [OnNext(x) for x in values] + [OnCompleted()]
+      )
+    )
+    observable = scheduler.createColdObservable(*messages)
+
+    return (
+      scheduler,
+      observable,
+      messages
+    )
+
   def assertHasValues(self, observer, vals, endAt, text):
     errors = [x for x in observer.messages if x[1].kind == Notification.KIND_ERROR]
-    values = [x for x in observer.messages if x[1].kind == Notification.KIND_NEXT]
 
     if len(errors) > 0:
       raise errors[0][1].exception
@@ -220,7 +218,6 @@ class ReactiveTest(unittest.TestCase):
         (endAt, OnCompleted())
       ]
 
-    self.assertEqual(len(vals), len(values), text)
     self.assertSequenceEqual(messages, observer.messages, text)
 
   def assertHasSingleValue(self, observer, value, at, text):
@@ -241,47 +238,15 @@ class ReactiveTest(unittest.TestCase):
     self.assertEqual(at, errors[0][0], text)
     self.assertEqual(exceptionText, str(errors[0][1].exception), text)
 
-  def assertNoException(self, messages):
-    for message in messages:
-      # time = message[0]
-      notification = message[1]
+  def assertHasRecorded(self, observer, messages, text):
+    errors = [x for x in observer.messages if x[1].kind == Notification.KIND_ERROR]
+    errorsExpected = [x for x in messages if x[1].kind == Notification.KIND_ERROR]
 
-      assert isinstance(notification, Notification)
+    if len(errors) > 0:
+      if len(errorsExpected) == 0:
+        raise errors[0][1].exception
+      else:
+        self.assertEqual(errorsExpected[0][0], errors[0][0], text)
+        self.assertEqual(str(errorsExpected[0][1].exception), str(errors[0][1].exception), text)
 
-      if notification.kind == Notification.KIND_ERROR:
-        raise notification.exception
-
-  def assertHasMessages(self, observable, *messages):
-    expected = list(messages)
-    actual = []
-
-    if isinstance(observable, TestObserver):
-      actual = observable.messages
-    else:
-      actual = list(observable.materialize())
-
-    errorExpected = [x for x in expected if x.kind == Notification.KIND_ERROR]
-    errorActual = [x for x in actual if x.kind == Notification.KIND_ERROR]
-
-    if len(errorExpected) == 0 and len(errorActual) > 0:
-      raise errorActual[0].exception
-    elif len(errorExpected) == 1 and len(errorActual) == 1:
-      self.assertEqual(
-        errorExpected[0],
-        errorActual[0],
-        "Exceptions shoud match"
-      )
-
-    self.assertSequenceEqual(
-      [x.value for x in expected if x.kind == Notification.KIND_NEXT],
-      [x.value for x in actual if x.kind == Notification.KIND_NEXT],
-      "On next values of observables should match",
-      list
-    )
-
-    self.assertSequenceEqual(
-      expected,
-      actual,
-      "The observable should generate the correct messages sequence",
-      list
-    )
+    self.assertSequenceEqual(messages, observer.messages, text)

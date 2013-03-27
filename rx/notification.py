@@ -40,7 +40,7 @@ class OnNextNotification(Notification):
     self.kind = Notification.KIND_NEXT
 
   def __repr__(self):
-    return "OnNextNotification(%s)" % self.value
+    return "OnNextNotification(%s)" % repr(self.value)
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):
@@ -59,7 +59,7 @@ class OnErrorNotification(Notification):
     self.kind = Notification.KIND_ERROR
 
   def __repr__(self):
-    return "OnErrorNotification(%s)" % self.exception
+    return "OnErrorNotification(%s)" % repr(self.exception)
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
     if callable(observerOrOnNext):

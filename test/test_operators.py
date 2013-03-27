@@ -7,7 +7,7 @@ from rx.observable import Observable
 from rx.scheduler import Scheduler
 from rx.subject import Subject
 
-from test.reactive import OnNext, OnError, OnCompleted, TestObserver, TestScheduler, ReactiveTest
+from test.reactive import OnNext, OnError, OnCompleted, TestScheduler, ReactiveTest
 
 def rep(value, count):
   return Observable.fromIterable([value]*count)
@@ -576,9 +576,16 @@ class TestCreation(ReactiveTest):
     self.assertSequenceEqual(values, a, "defere should return the created observable sequence", list)
 
   def test_empty(self):
-    self.assertHasMessages(
-      Observable.empty(),
-      OnCompleted()
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.empty()
+    )
+
+    self.assertHasRecorded(o, [
+        (200, OnCompleted())
+      ],
+      "empty should yield no values"
     )
 
   def test_generate(self):
@@ -589,14 +596,19 @@ class TestCreation(ReactiveTest):
     def resultSelector(x):
       return x
 
-    o = Observable.generate(0, condition, iterate, resultSelector)
+    sched = TestScheduler()
 
-    self.assertHasMessages(
-      o,
-      OnNext(0),
-      OnNext(1),
-      OnNext(2),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.generate(0, condition, iterate, resultSelector)
+    )
+
+    self.assertHasValues(o, [
+        (200, 0),
+        (200, 1),
+        (200, 2),
+      ],
+      200,
+      "generate should generate values"
     )
 
   def test_range(self):
@@ -748,393 +760,527 @@ class TestCreation(ReactiveTest):
 
 class TestImperative(ReactiveTest):
   def test_case(self):
+    sched = TestScheduler()
     selector = lambda: 5
     sources = {
       5: Observable.fromIterable([3, 2, 1]),
       4: Observable.fromIterable([6, 5, 4])
     }
 
-    self.assertHasMessages(
-      Observable.case(selector, sources),
-      OnNext(3),
-      OnNext(2),
-      OnNext(1),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.case(selector, sources)
+    )
+
+    self.assertHasValues(o, [
+        (200, 3),
+        (200, 2),
+        (200, 1),
+      ],
+      200,
+      "case should yield all values from the correct observable"
     )
 
   def test_doWhile(self):
+    sched = TestScheduler()
     state = Struct(count=4)
 
     def condition():
       state.count -= 1
       return state.count >= 0
 
-    self.assertHasMessages(
-      Observable.returnValue(5).doWhile(condition),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.returnValue(5).doWhile(condition)
+    )
+
+    self.assertHasValues(o, [
+        (200, 5),
+        (200, 5),
+        (200, 5),
+        (200, 5),
+        (200, 5),
+      ],
+      200,
+      "doWhile should yield self as long as condition returns True"
     )
 
   def test_iterable_for(self):
-    self.assertHasMessages(
-      Observable.iterableFor(range(1, 5), lambda x: Observable.returnValue(x)),
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnNext(4),
-      OnCompleted()
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.iterableFor(range(1, 5), lambda x: Observable.returnValue(x))
+    )
+
+    self.assertHasValues(o, [
+        (200, 1),
+        (200, 2),
+        (200, 3),
+        (200, 4),
+      ],
+      200,
+      "iterableFor should yield observable from selector for each value in iterable"
     )
 
   def test_branch(self):
+    sched = TestScheduler()
     def condition():
       return False
 
     thenSource = Observable.returnValue(5)
     elseSource = Observable.returnValue(6)
 
-    self.assertHasMessages(
-      Observable.branch(condition, thenSource, elseSource),
-      OnNext(6),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.branch(condition, thenSource, elseSource)
+    )
+
+    self.assertHasValues(o, [
+        (200, 6),
+      ],
+      200,
+      "branch should subscribe to right branch on False"
     )
 
   def test_loop(self):
+    sched = TestScheduler()
     state = Struct(count=4)
 
     def condition():
       state.count -= 1
       return state.count >= 0
 
-    self.assertHasMessages(
-      Observable.returnValue(5).loop(condition),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnNext(5),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.returnValue(5).doWhile(condition)
+    )
+
+    self.assertHasValues(o, [
+        (200, 5),
+        (200, 5),
+        (200, 5),
+        (200, 5),
+        (200, 5),
+      ],
+      200,
+      "loop should yield self as long as condition returns True"
     )
 
 
 class TestMultiple(ReactiveTest):
   def test_amb(self):
-    s1 = Subject()
-    s2 = Subject()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (250, OnNext(2)),
+      (260, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (240, OnNext(10)),
+      (240, OnNext(20)),
+      (250, OnCompleted())
+    )
 
-    r = TestObserver(s1.amb(s2))
+    o = sched.start(
+      lambda: o1.amb(o2)
+    )
 
-    with r.subscribe():
-      s1.onNext(4)
-      s2.onNext(5)
-      s1.onNext(6)
-      s1.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (250, 2),
+      ],
+      260,
+      "amb should subscribe to the earliest reacting observable"
     )
 
   def test_catch_exception(self):
-    state = Struct(
-      exception=None
-    )
+    sched = TestScheduler()
     ex = Exception("Test Exception")
 
     def handler(exception):
-      state.exception = exception
+      self.assertEqual(ex, exception, "catchException should yield exception to handler")
       return Observable.throw(ex).startWith(5)
 
-    s = Subject()
-    r = TestObserver(s.catchException(handler))
+    o = sched.start(
+      lambda: Observable.throw(ex).catchException(handler)
+    )
 
-    with r.subscribe():
-      s.onNext(4)
-      s.onError(ex)
-
-    self.assertIs(ex, state.exception)
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(5),
-      OnError(ex)
+    self.assertSequenceEqual(
+      o.messages,
+      [
+        (200, OnNext(5)),
+        (200, OnError(ex)),
+      ],
+      "catchException should only catch exceptions from the original source"
     )
 
   def test_catch_fallback(self):
+    sched = TestScheduler()
     ex = Exception("Test Exception")
     observables = [
       Observable.throw(ex),
       Observable.returnValue(5)
     ]
 
-    self.assertHasMessages(
-      Observable.throw(ex).catchFallback(observables),
-      OnNext(5),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.throw(ex).catchFallback(observables)
+    )
+
+    self.assertHasValues(o, [
+        (200, 5)
+      ],
+      200,
+      "catchFallback should fall back until a succeeding sequence is found"
     )
 
   def test_combine_latest(self):
-    s1 = Subject()
-    s2 = Subject()
-
-    o = Observable.combineLatest(s1, s2)
-    r = TestObserver(o)
-
-    with r.subscribe():
-      s1.onNext(5)
-      s2.onNext(4)
-      s2.onNext(3)
-      s2.onCompleted()
-      s1.onNext(6)
-      s1.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext((5, 4)),
-      OnNext((5, 3)),
-      OnNext((6, 3)),
-      OnCompleted()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (240, OnNext(2)),
+      (250, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnCompleted())
     )
 
-  def test_concat(self):
-    o1 = Observable.returnValue(4)
-    o2 = Observable.returnValue(5)
-    o3 = Observable.returnValue(6)
-
-    self.assertHasMessages(
-      o1.concat(o2, o3),
-      OnNext(4),
-      OnNext(5),
-      OnNext(6),
-      OnCompleted()
+    o = sched.start(
+      lambda: Observable.combineLatest(o1, o2)
     )
 
-    self.assertHasMessages(
-      o1.concat([o2, o3]),
-      OnNext(4),
-      OnNext(5),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, (1, 10)),
+        (230, (1, 20)),
+        (240, (2, 20)),
+      ],
+      250,
+      "combineLatest should yield tuple of most latest values of all sequences"
     )
 
-    self.assertHasMessages(
-      Observable.concat(o1, o2, o3),
-      OnNext(4),
-      OnNext(5),
-      OnNext(6),
-      OnCompleted()
+  def test_concat_1(self):
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(4)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (230, OnNext(5)),
+      (250, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (260, OnNext(6)),
+      (270, OnCompleted())
     )
 
-    self.assertHasMessages(
-      Observable.concat([o1, o2, o3]),
-      OnNext(4),
-      OnNext(5),
-      OnNext(6),
-      OnCompleted()
+    o = sched.start(
+      lambda: o1.concat(o2, o3)
+    )
+
+    self.assertHasValues(o, [
+        (210, 4),
+        (260, 6),
+      ],
+      270,
+      "concat should yield values in order, ignore too early values"
+    )
+
+  def test_concat_2(self):
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(4)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (230, OnNext(5)),
+      (250, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (260, OnNext(6)),
+      (270, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: Observable.concat(o1, o2, o3)
+    )
+
+    self.assertHasValues(o, [
+        (210, 4),
+        (260, 6),
+      ],
+      270,
+      "concat should yield values in order, ignore too early values"
+    )
+
+  def test_concat_3(self):
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(4)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (230, OnNext(5)),
+      (250, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (260, OnNext(6)),
+      (270, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: o1.concat([o2, o3])
+    )
+
+    self.assertHasValues(o, [
+        (210, 4),
+        (260, 6),
+      ],
+      270,
+      "concat should yield values in order, ignore too early values"
+    )
+
+  def test_concat_4(self):
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(4)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (230, OnNext(5)),
+      (250, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (260, OnNext(6)),
+      (270, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: Observable.concat([o1, o2, o3])
+    )
+
+    self.assertHasValues(o, [
+        (210, 4),
+        (260, 6),
+      ],
+      270,
+      "concat should yield values in order, ignore too early values"
     )
 
   def test_merge(self):
-    s1 = Subject()
-    s2 = Subject()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (230, OnNext(4)),
+      (270, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (250, OnNext(5)),
+      (260, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (240, OnNext(6)),
+      (250, OnCompleted())
+    )
+    o4 = sched.createHotObservable(
+      (205, OnNext(o1)),
+      (215, OnNext(o2)),
+      (225, OnNext(o3)),
+      (240, OnCompleted())
+    )
 
-    r = TestObserver(Observable.merge(Observable.fromIterable([s1, s2])))
+    o = sched.start(
+      lambda: o4.merge()
+    )
 
-    with r.subscribe():
-      s1.onNext(3)
-      s2.onNext(4)
-      s1.onNext(6)
-      s1.onCompleted()
-      s2.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(3),
-      OnNext(4),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 4),
+        (240, 6),
+        (250, 5),
+      ],
+      270,
+      "merge should yield all values in order"
     )
 
   def test_on_error_resume_next(self):
+    sched = TestScheduler()
     ex = Exception("Test Exception")
     os = [
-      Observable.throw(ex),
-      Observable.throw(ex),
-      Observable.throw(ex),
-      Observable.returnValue(4),
+      sched.createHotObservable((210, OnError(ex))),
+      sched.createHotObservable((220, OnError(ex))),
+      sched.createHotObservable((230, OnNext(2)), (240, OnCompleted())),
     ]
 
-    r = TestObserver(Observable.onErrorResumeNext(os))
+    o = sched.start(
+      lambda: Observable.onErrorResumeNext(os)
+    )
 
-    with r.subscribe():
-      pass
-
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 2),
+      ],
+      240,
+      "onErrorResumeNext should yield all values in order"
     )
 
   def test_skip_until(self):
-    s1 = Subject()
-    s2 = Subject()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (230, OnNext(2)),
+      (240, OnNext(3)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(6))
+    )
 
-    r = TestObserver(s1.skipUntil(s2))
+    o = sched.start(
+      lambda: o1.skipUntil(o2)
+    )
 
-    with r.subscribe():
-      s1.onNext(1)
-      s2.onNext(3)
-      s1.onNext(2)
-      s1.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(2),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 2),
+        (240, 3),
+      ],
+      240,
+      "skipUntil should yield values after other observable yielded first value"
     )
 
   def test_switch(self):
-    s = Subject()
-    s1 = Subject()
-    s2 = Subject()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (230, OnNext(1)),
+      (230, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (240, OnNext(2)),
+      (240, OnCompleted())
+    )
+    o3 = sched.createHotObservable(
+      (210, OnNext(o1)),
+      (220, OnNext(o2)),
+      (220, OnCompleted())
+    )
 
-    r = TestObserver(s.switch())
+    o = sched.start(
+      lambda: o3.switch()
+    )
 
-    with r.subscribe():
-      s.onNext(s1)
-
-      s1.onNext(1)
-
-      # should be ignored
-      s2.onNext(5)
-
-      s.onNext(s2)
-
-      # should be ignored
-      s1.onNext(2)
-
-      s2.onNext(6)
-
-      s2.onCompleted()
-      s.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (240, 2),
+      ],
+      240,
+      "switch should always subscribe to the latest observable"
     )
 
   def test_take_until(self):
-    s1 = Subject()
-    s2 = Subject()
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (230, OnNext(2)),
+      (240, OnNext(3)),
+      (240, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(6))
+    )
 
-    r = TestObserver(s1.takeUntil(s2))
+    o = sched.start(
+      lambda: o1.takeUntil(o2)
+    )
 
-    with r.subscribe():
-      s1.onNext(1)
-      s2.onNext(3)
-      s1.onNext(2)
-      s1.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+      ],
+      220,
+      "takeUntil should yield values until other observable yielded first value"
     )
 
   def test_zip(self):
-    o1 = Observable.fromIterable([1, 2])
-    o2 = Observable.fromIterable([1, 2, 3])
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (230, OnNext(2)),
+      (240, OnNext(3)),
+      (250, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(6)),
+      (230, OnNext(7)),
+      (240, OnCompleted())
+    )
 
-    r = TestObserver(Observable.zip(o1, o2))
+    o = sched.start(
+      lambda: o1.zip(o2)
+    )
 
-    with r.subscribe():
-      pass
-
-    self.assertHasMessages(
-      r,
-      OnNext((1, 1)),
-      OnNext((2, 2)),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, (1, 6)),
+        (230, (2, 7)),
+      ],
+      250,
+      "zip should yield tuples of next values of all observables"
     )
 
 
 class TestSingle(ReactiveTest):
   def test_as_observable(self):
-    s = Subject()
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    r = TestObserver(s.asObservable())
-
-    with r.subscribe():
-      s.onNext(4)
-      s.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    o = sched.start(
+      lambda: xs.asObservable()
     )
 
+    self.assertHasRecorded(o, messages, "asObservable should behave as original observable")
+
   def test_buffer(self):
-    s = Subject()
-    r = TestObserver(s.buffer(2))
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.buffer(2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext([1, 2]),
-      OnNext([3]),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, [1, 2]),
+        (240, [3]),
+      ],
+      240,
+      "buffer should buffer values with count"
     )
 
   def test_dematerialize(self):
     ex = Exception("Test Exception")
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(OnNext(1))),
+      (250, OnNext(OnError(ex)))
+    )
 
-    o = Observable.fromIterable([
-      OnNext(4),
-      OnError(ex)
-    ])
+    o = sched.start(
+      lambda: o1.dematerialize()
+    )
 
-    r = TestObserver(o.dematerialize())
-
-    with r.subscribe():
-      pass
-
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnError(ex)
+    self.assertHasRecorded(o, [
+        (210, OnNext(1)),
+        (250, OnError(ex)),
+      ],
+      "dematerialize should call appropriate functions"
     )
 
   def test_distinct_until_changed(self):
-    s = Subject()
-    r = TestObserver(s.distinctUntilChanged())
+    sched, xs, messages = self.simpleHot(1, 2, 2, 3, 2)
 
-    with r.subscribe():
-      s.onNext(4)
-      s.onNext(4)
-      s.onNext(5)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.distinctUntilChanged()
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(5),
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 2),
+        (240, 3),
+        (250, 2),
+      ],
+      260,
+      "distinctUntilChanged should never yield consecutive duplicate values"
     )
 
   def test_do(self):
+    sched, xs, messages = self.simpleHot(1)
     state = Struct(
       onNextCalled=False,
       onNextValue=None,
@@ -1148,76 +1294,87 @@ class TestSingle(ReactiveTest):
     def onCompleted():
       state.onCompletedCalled = True
 
-    o = Observable.returnValue(5)
-    r = TestObserver(o.do(onNext, onCompleted=onCompleted))
-
-    with r.subscribe():
-      pass
+    sched.start(
+      lambda: xs.do(onNext, onCompleted=onCompleted)
+    )
 
     self.assertTrue(state.onNextCalled, "do should call onNext method")
-    self.assertEqual(5, state.onNextValue, "do should call onNext with correct value")
+    self.assertEqual(1, state.onNextValue, "do should call onNext with correct value")
     self.assertTrue(state.onCompletedCalled, "do should call onCompleted method")
 
-  def test_do_finally(self):
-    state = Struct(count=0)
+  def test_do_finally_complete(self):
+    sched = TestScheduler()
+    state = Struct(doCalled=False)
 
     def fin():
-      state.count += 1
+      state.doCalled = True
 
-    r1 = TestObserver(Observable.returnValue(4).doFinally(fin))
-    r2 = TestObserver(Observable.throw(Exception("Test Exception")).doFinally(fin))
+    sched.start(
+      lambda: Observable.empty().doFinally(fin)
+    )
 
-    with r1.subscribe():
-      pass
+    self.assertTrue(state.doCalled, "doFinally should call final action")
 
-    with r2.subscribe():
-      pass
+  def test_do_finally_exception(self):
+    sched = TestScheduler()
+    state = Struct(doCalled=False)
 
-    self.assertEqual(2, state.count, "doFinally should call final action")
+    def fin():
+      state.doCalled = True
+
+    sched.start(
+      lambda: Observable.throw(Exception("Test Exception")).doFinally(fin)
+    )
+
+    self.assertTrue(state.doCalled, "doFinally should call final action")
 
   def test_ignore_elements(self):
-    s = Subject()
-    r = TestObserver(s.ignoreElements())
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.ignoreElements()
+    )
 
-    self.assertHasMessages(
-      r,
-      OnCompleted()
+    self.assertHasValues(o, [
+      ],
+      240,
+      "ignoreElements should ignore all elements"
     )
 
   def test_materialize(self):
-    s = Subject()
-    r = TestObserver(s.materialize())
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(5)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.materialize()
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(OnNext(5)),
-      OnNext(OnCompleted()),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, OnNext(1)),
+        (220, OnNext(2)),
+        (230, OnNext(3)),
+        (240, OnCompleted()),
+      ],
+      240,
+      "materialize should transform values into notifications"
     )
 
   def test_repeat_self(self):
-    o = Observable.returnValue(4)
-    r = TestObserver(o.repeatSelf(2))
+    sched, xs, messages = self.simpleCold(1)
 
-    with r.subscribe():
-      pass
+    o = sched.start(
+      lambda: xs.repeatSelf(2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (230, 1),
+      ],
+      240,
+      "repeatSelf should repeat itself"
     )
 
   def test_retry(self):
+    sched = TestScheduler()
     state = Struct(count=4)
 
     def subscribe(observer):
@@ -1229,496 +1386,464 @@ class TestSingle(ReactiveTest):
       else:
         observer.onError(Exception("Test Exception"))
 
-    r = TestObserver(Observable.create(subscribe).retry())
+    o = sched.start(
+      lambda: Observable.create(subscribe).retry()
+    )
 
-    with r.subscribe():
-      pass
-
-    self.assertHasMessages(
-      r,
-      OnNext(5),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (200, 5),
+      ],
+      200,
+      "repeatSelf should repeat itself"
     )
 
   def test_scan(self):
-    s = Subject()
-    r = TestObserver(s.scan(0, lambda acc, x: acc + x))
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.scan(0, lambda acc, x: acc + x)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(3),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 3),
+        (230, 6),
+      ],
+      240,
+      "scan should yield intermediate result of accumulator on every value"
     )
 
   def test_skip_last(self):
-    s = Subject()
-    r = TestObserver(s.skipLast(2))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5, 6)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onNext(5)
-      s.onNext(6)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.skipLast(2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 1),
+        (240, 2),
+        (250, 3),
+        (260, 4),
+      ],
+      270,
+      "skipLast should yield old values as soon as more than 'count' values have arrived"
     )
 
   def test_start_with(self):
-    s = Subject()
-    r = TestObserver(s.startWith(1, 2))
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(5)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.startWith(5, 6)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnNext(5),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (200, 5),
+        (200, 6),
+        (210, 1),
+        (220, 2),
+        (230, 3),
+      ],
+      240,
+      "startWith should yield values at subscription, then subscribe to the original observable"
     )
 
   def test_take_last(self):
-    s = Subject()
-    r = TestObserver(s.takeLast(2))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5, 6)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onNext(5)
-      s.onNext(6)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.takeLast(2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(5),
-      OnNext(6),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (270, 5),
+        (270, 6),
+      ],
+      270,
+      "takeLast should yield last 'count' values"
     )
 
   def test_take_last_buffer(self):
-    s = Subject()
-    r = TestObserver(s.takeLastBuffer(2))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5, 6)
 
-    with r.subscribe():
-      s.onNext(3)
-      s.onNext(4)
-      s.onNext(5)
-      s.onNext(6)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.takeLastBuffer(2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext([5, 6]),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (270, [5, 6]),
+      ],
+      270,
+      "takeLastBuffer should yield last 'count' values as list"
     )
 
   def test_window(self):
-    s1 = Subject()
-    s2 = Subject()
-    r = TestObserver(s2)
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    s1.window(2, 1).subscribe(
-      lambda x: x.toList().subscribe(s2.onNext),
-      s2.onError,
-      s2.onCompleted
+    o = sched.start(
+      lambda: xs.window(2, 1).selectMany(
+        lambda window: window.toList()
+      )
     )
 
-    with r.subscribe():
-      s1.onNext(3)
-      s1.onNext(4)
-      s1.onNext(5)
-      s1.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext([3, 4]),
-      OnNext([4, 5]),
-      OnNext([5]),
-      OnNext([]),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, [1, 2]),
+        (230, [2, 3]),
+        (240, [3]),
+        (240, []),
+      ],
+      240,
+      "window should yield windows of size at max 'count'"
     )
 
 
 class TestStandardSequence(ReactiveTest):
   def test_default_if_empty(self):
-    s = Subject()
-    r = TestObserver(s.defaultIfEmpty(5))
+    sched = TestScheduler()
 
-    with r.subscribe():
-      s.onCompleted()
+    o = sched.start(
+      lambda: Observable.empty().defaultIfEmpty(5)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(5),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (200, 5),
+      ],
+      200,
+      "defaultIfEmpty should yield default value on empty"
     )
 
   def test_distinct(self):
-    s = Subject()
-    r = TestObserver(s.distinct())
+    sched, xs, messages = self.simpleHot(1, 1, 2, 1)
 
-    with r.subscribe():
-      s.onNext(4)
-      s.onNext(4)
-      s.onNext(5)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.distinct()
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(5),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (230, 2),
+      ],
+      250,
+      "defaultIfEmpty should yield default value on empty"
     )
 
   def test_group_by(self):
-    s1 = Subject()
-    s2 = Subject()
-    r = TestObserver(s2)
-
-    s1.groupBy(
-      lambda x: x['k'], lambda x: x['v']
-    ).subscribe(
-      lambda subject: subject.toList().subscribe(
-        lambda values: s2.onNext({'k': subject.key, 'v': values})
-      ),
-      s2.onError,
-      s2.onCompleted
+    sched, xs, messages = self.simpleHot(
+      {'k': 1, 'v': 1},
+      {'k': 1, 'v': 2},
+      {'k': 2, 'v': 3}
     )
 
-    with r.subscribe():
-      s1.onNext({'k': 1, 'v': 1})
-      s1.onNext({'k': 1, 'v': 2})
-      s1.onNext({'k': 2, 'v': 3})
-      s1.onCompleted()
+    o = sched.start(
+      lambda: xs.groupBy(
+        lambda x: x['k'],
+        lambda x: x['v']
+      ).selectMany(
+        lambda subject: subject.toList().select(
+          lambda values: {'k': subject.key, 'v': values}
+        )
+      )
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext({'k': 1, 'v': [1, 2]}),
-      OnNext({'k': 2, 'v': [3]}),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (240, {'k': 1, 'v': [1, 2]}),
+        (240, {'k': 2, 'v': [3]})
+      ],
+      240,
+      "groupBy should group values"
     )
 
   def test_group_by_until(self):
-    s1 = Subject()
-    s2 = Subject()
-    r = TestObserver(s2)
-
-    s1.groupByUntil(
-      lambda x: x['k'],
-      lambda x: x['v'],
-      lambda x: Observable.never()
-    ).subscribe(
-      lambda obs: obs.toList().subscribe(
-        lambda values: s2.onNext({'k': obs.key, 'v': values})
-      ),
-      s2.onError,
-      s2.onCompleted
+    sched, xs, messages = self.simpleHot(
+      {'k': 1, 'v': 1},
+      {'k': 1, 'v': 2},
+      {'k': 2, 'v': 3}
     )
 
-    with r.subscribe():
-      s1.onNext({'k': 1, 'v': 1})
-      s1.onNext({'k': 1, 'v': 2})
-      s1.onNext({'k': 2, 'v': 3})
-      s1.onCompleted()
+    o = sched.start(
+      lambda: xs.groupByUntil(
+        lambda x: x['k'],
+        lambda x: x['v'],
+        lambda x: Observable.never()
+      ).selectMany(
+        lambda subject: subject.toList().select(
+          lambda values: {'k': subject.key, 'v': values}
+        )
+      )
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext({'k': 1, 'v': [1, 2]}),
-      OnNext({'k': 2, 'v': [3]}),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (240, {'k': 1, 'v': [1, 2]}),
+        (240, {'k': 2, 'v': [3]})
+      ],
+      240,
+      "groupByUntil should group values"
     )
 
   def test_group_join(self):
-    s1 = Subject()
-    s2 = Subject()
-    s3 = Subject()
-
-    s1.groupJoin(
-      s2,
-      lambda x: Observable.never(),
-      lambda x: Observable.never(),
-      lambda leftValue, rightObs: rightObs.select(lambda x: (leftValue, x))
-    ).subscribe(
-      lambda x: x.subscribe(s3.onNext),
-      s3.onError,
-      s3.onCompleted
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (240, OnNext(2)),
+      (250, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(6)),
+      (230, OnNext(7)),
+      (240, OnCompleted())
     )
 
-    r = TestObserver(s3)
+    o = sched.start(
+      lambda: o1.groupJoin(
+        o2,
+        lambda x: Observable.never(),
+        lambda x: Observable.never(),
+        lambda leftValue, leftWindow: leftWindow.select(lambda x: (leftValue, x))
+      ).merge()
+    )
 
-    with r.subscribe():
-      s1.onNext(1)
-      s2.onNext(5)
-      s1.onNext(2)
-      s1.onCompleted()
-      s2.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext((1, 5)),
-      OnNext((2, 5)),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, (1, 6)),
+        (230, (1, 7)),
+        (240, (2, 6)),
+        (240, (2, 7)),
+      ],
+      None,
+      "groupJoin should yield tuples according to selector function"
     )
 
   def test_join(self):
-    s1 = Subject()
-    s2 = Subject()
-
-    o = s1.join(
-      s2,
-      lambda x: Observable.never(),
-      lambda x: Observable.never(),
-      lambda left, right: (left, right)
+    sched = TestScheduler()
+    o1 = sched.createHotObservable(
+      (210, OnNext(1)),
+      (240, OnNext(2)),
+      (250, OnCompleted())
+    )
+    o2 = sched.createHotObservable(
+      (220, OnNext(6)),
+      (230, OnNext(7)),
+      (240, OnCompleted())
     )
 
-    r = TestObserver(o)
+    o = sched.start(
+      lambda: o1.join(
+        o2,
+        lambda x: Observable.never(),
+        lambda x: Observable.never(),
+        lambda left, right: (left, right)
+      )
+    )
 
-    with r.subscribe():
-      s1.onNext(1)
-      s2.onNext(5)
-      s1.onNext(2)
-      s1.onCompleted()
-      s2.onCompleted()
-
-    self.assertHasMessages(
-      r,
-      OnNext((1, 5)),
-      OnNext((2, 5)),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (220, (1, 6)),
+        (230, (1, 7)),
+        (240, (2, 6)),
+        (240, (2, 7)),
+      ],
+      250,
+      "groupJoin should yield tuples according to selector function"
     )
 
   def test_of_type(self):
-    s = Subject()
-    r = TestObserver(s.ofType(int))
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(1)),
+      (240, OnNext("Hello")),
+      (250, OnCompleted())
+    )
 
-    with r.subscribe():
-      s.onNext("Hello")
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.ofType(int)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+      ],
+      250,
+      "ofType should ignore values that are of wrong type"
     )
 
   def test_select(self):
-    s = Subject()
-    r = TestObserver(s.select(lambda x: x * x))
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(2)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.select(lambda x: x * x)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(16),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 4),
+        (230, 9),
+      ],
+      240,
+      "select should yield selector applied to values"
     )
 
   def test_select_enumerate(self):
-    s = Subject()
-    r = TestObserver(s.selectEnumerate(lambda x, i: x * i))
+    sched, xs, messages = self.simpleHot(1, 2, 3)
 
-    with r.subscribe():
-      s.onNext(2)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.selectEnumerate(lambda x, i: x * i)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(0),
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 0),
+        (220, 2),
+        (230, 6),
+      ],
+      240,
+      "selectEnumerate should yield selector applied to values"
     )
 
   def test_select_many(self):
     ex = Exception("Test Exception")
-    s = Subject()
-    r = TestObserver(s.selectMany(
-      lambda x: Observable.returnValue(x*x),
-      lambda ex: Observable.throw(ex)
-    ))
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(2)),
+      (250, OnError(ex))
+    )
 
-    with r.subscribe():
-      s.onNext(2)
-      s.onNext(4)
-      s.onError(ex)
+    o = sched.start(
+      lambda: xs.selectMany(
+        lambda x: Observable.returnValue(x*x),
+        lambda e: Observable.throw(e)
+      )
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnNext(16),
-      OnError(ex)
+    self.assertHasRecorded(o, [
+        (210, OnNext(4)),
+        (250, OnError(ex)),
+      ],
+      "selectMany should subscribe to the observable returned by the selector"
     )
 
   def test_select_many_ignore(self):
     ex = Exception("Test Exception")
-    s = Subject()
-    r = TestObserver(s.selectMany(
-      Observable.returnValue(1423)
-    ))
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(2)),
+      (250, OnError(ex))
+    )
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onError(ex)
+    o = sched.start(
+      lambda: xs.selectMany(
+        Observable.returnValue(1234)
+      )
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1423),
-      OnNext(1423),
-      OnError(ex)
+    self.assertHasRecorded(o, [
+        (210, OnNext(1234)),
+        (250, OnError(ex)),
+      ],
+      "selectMany should subscribe to the observable given as parameter"
     )
 
   def test_skip(self):
-    s = Subject()
-    r = TestObserver(s.skip(3))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.skip(3)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (240, 4),
+      ],
+      250,
+      "skip should skip 'count' values"
     )
 
   def test_skip_while(self):
-    s = Subject()
-    r = TestObserver(s.skipWhile(lambda x: x < 4))
+    sched, xs, messages = self.simpleHot(1, 2, 4, 1)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.skipWhile(lambda x: x < 4)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 4),
+        (240, 1),
+      ],
+      250,
+      "skipWhile should skip values as long as predicate returns True"
     )
 
   def test_skip_while_enumerate(self):
-    s = Subject()
-    r = TestObserver(s.skipWhileEnumerate(lambda x, i: i < 3))
+    sched, xs, messages = self.simpleHot(1, 2, 4, 1)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.skipWhileEnumerate(lambda x, i: i < 2)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(4),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (230, 4),
+        (240, 1),
+      ],
+      250,
+      "skipWhileEnumerate should skip values as long as predicate returns True"
     )
 
   def test_take(self):
-    s = Subject()
-    r = TestObserver(s.take(3))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.take(3)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 2),
+        (230, 3),
+      ],
+      230,
+      "take should yield 'count' values"
     )
 
   def test_take_while(self):
-    s = Subject()
-    r = TestObserver(s.takeWhile(lambda x: x < 4))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.takeWhile(lambda x: x < 4)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 2),
+        (230, 3),
+      ],
+      240,
+      "takeWhile should yield values as long predicate returns True"
     )
 
   def test_take_while_enumerate(self):
-    s = Subject()
-    r = TestObserver(s.takeWhileEnumerate(lambda x, i: i < 3))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(2)
-      s.onNext(3)
-      s.onNext(4)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.takeWhileEnumerate(lambda x, i: i < 3)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnNext(3),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 2),
+        (230, 3),
+      ],
+      240,
+      "takeWhileEnumerate should yield values as long predicate returns True"
     )
 
   def test_where(self):
-    s = Subject()
-    r = TestObserver(s.where(lambda x: x < 3))
+    sched, xs, messages = self.simpleHot(1, 2, 3, 2)
 
-    with r.subscribe():
-      s.onNext(1)
-      s.onNext(90)
-      s.onNext(2)
-      s.onNext(80)
-      s.onCompleted()
+    o = sched.start(
+      lambda: xs.where(lambda x: x < 3)
+    )
 
-    self.assertHasMessages(
-      r,
-      OnNext(1),
-      OnNext(2),
-      OnCompleted()
+    self.assertHasValues(o, [
+        (210, 1),
+        (220, 2),
+        (240, 2),
+      ],
+      250,
+      "where should yield values as long predicate returns True"
     )
 
 
