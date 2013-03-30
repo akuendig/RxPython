@@ -3,7 +3,8 @@ from rx.observable import Producer
 from rx.observer import Observer
 from rx.internal import Struct
 from rx.scheduler import Scheduler
-from .sink import Sink
+import rx.linq.sink
+from collections import deque
 from threading import Event, RLock, Semaphore
 
 
@@ -27,198 +28,8 @@ class DelayTime(Producer):
   def eval(self):
     return self.observableFactory()
 
-  class Sink(Sink):
-    def __init__(self, parent, observer, cancel):
-      super(DelayTime.Sink, self).__init__(observer, cancel)
-      self.parent = parent
 
-    def run(self):
-      self.scheduler = self.parent.scheduler
-
-      self.cancel = SerialDisposable()
-
-      self.gate = RLock()
-      self.active = False # as soon as a value arrived
-      self.running = False # on relative: True, on absolute: True after absolute time
-      self.queue = []
-      self.hasCompleted = False
-      self.completeAt = 0
-      self.hasFailed = False
-      self.exception = None
-
-      self.startTime = self.scheduler.now()
-
-      if self.parent.isAbsolute:
-        self.ready = False
-        self.cancel.disposable = self.scheduler.scheduleWithAbsolute(
-          self.parent.dueTime,
-          self.start
-        )
-      else:
-        self.ready = True
-        self.delay = Scheduler.normalize(self.parent.dueTime)
-
-      self.sourceSubscription = SingleAssignmentDisposable()
-      self.sourceSubscription.disposable = self.parent.source.subscribeSafe(self)
-
-      return CompositeDisposable(self.sourceSubscription, self.cancel)
-
-    def elapsed(self):
-      return self.scheduler.now() - self.startTime
-
-    def start(self):
-      next = 0
-      shouldRun = False
-
-      with self.gate:
-        self.delay = self.elapsed()
-
-        if len(self.queue) > 0:
-          next = self.queue[0].interval
-
-          for item in self.queue:
-            item.interval += self.delay
-
-          shouldRun = True
-          self.active = True
-
-        self.ready = True
-
-      if shouldRun:
-        self.cancel.disposable = self.scheduler.scheduleRecursiveWithRelative(
-          next,
-          self.drainQueue
-        )
-
-    def onNext(self, value):
-      next = self.elapsed() + self.delay
-      shouldRun = False
-
-      with self.gate:
-        self.queue.append(Struct(value=value, interval=next))
-        shouldRun = self.ready and (not self.active)
-        self.active = True
-
-      if shouldRun:
-        self.cancel.disposable = self.scheduler.scheduleRecursiveWithRelative(
-          self.delay,
-          self.drainQueue
-        )
-
-    def onError(self, exception):
-      self.sourceSubscription.dispose()
-
-      shouldRun = False
-
-      with self.gate:
-        self.queue.clear()
-
-        self.exception = exception
-        self.hasFailed = True
-
-        shouldRun = not self.running
-
-      if shouldRun:
-        self.observer.onError(exception)
-        self.dispose()
-
-    def onCompleted(self):
-      self.sourceSubscription.dispose()
-
-      next = self.elapsed() + self.delay
-      shouldRun = False
-
-      with self.gate:
-        self.completeAt = next
-        self.hasCompleted = True
-
-        shouldRun = self.ready and (not self.active)
-        self.active = True
-
-      if shouldRun:
-        self.cancel.disposable = self.scheduler.scheduleRecursiveWithRelative(
-          self.delay,
-          self.drainQueue
-        )
-
-    def drainQueue(self, recurse):
-      with self.gate:
-        if self.hasFailed:
-          return
-        self.running = True
-
-
-      #
-      # The shouldYield flag was added to address TFS 487881: "Delay can be unfair". In the old
-      # implementation, the loop below kept running while there was work for immediate dispatch,
-      # potentially causing a long running work item on the target scheduler. With the addition
-      # of long-running scheduling in Rx v2.0, we can check whether the scheduler supports this
-      # interface and perform different processing (see λ). To reduce the code churn in the old
-      # loop code here, we set the shouldYield flag to true after the first dispatch iteration,
-      # in order to break from the loop and enter the recursive scheduling path.
-
-      shouldYield = False
-
-      while True:
-        hasFailed = False
-        error = NotImplementedError
-
-        hasValue = False
-        value = NotImplementedError
-        hasCompleted = False
-
-        shouldRecurse = False
-        recurseDueTime = 0
-
-        with self.gate:
-          if self.hasFailed:
-            error = self.exception
-            hasFailed = True
-            self.running = False
-          else:
-            now = self.elapsed()
-
-            if len(self.queue) > 0:
-              nextDue = self.queue[0].interval
-
-              if nextDue <= now and not shouldYield:
-                value = self.queue[0].value
-                hasValue = True
-                self.queue = self.queue[1:]
-              else:
-                shouldRecurse = True
-                recurseDueTime = Scheduler.normalize(nextDue - now)
-                self.running = False
-            elif self.hasCompleted:
-              if self.completeAt < now and not shouldYield:
-                hasCompleted = True
-              else:
-                shouldRecurse = True
-                recurseDueTime = Scheduler.normalize(nextDue - now)
-                self.running = False
-            else:
-              self.running = False
-              self.active = False
-        # end with self.gate
-
-        if hasValue:
-          self.observer.onNext(value)
-          shouldYield = True
-        else:
-          if hasCompleted:
-            self.observer.onCompleted()
-            self.dispose()
-          elif hasFailed:
-            self.observer.onError(error)
-            self.dispose()
-          elif shouldRecurse:
-            recurse(recurseDueTime)
-
-          return
-      #end while
-    # end Sink
-
-  class LongrunningSink(Sink):
+  class LongrunningSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(DelayTime.LongrunningSink, self).__init__(observer, cancel)
       self.parent = parent
@@ -226,22 +37,23 @@ class DelayTime(Producer):
     def run(self):
       self.scheduler = self.parent.scheduler
 
-      self.cancel = SerialDisposable()
+      self.cancelTimer = SerialDisposable()
 
       self.gate = RLock()
       self.evt = Semaphore(0)
       self.stopped = False
       self.stop = Event()
-      self.queue = []
+      self.queue = deque()
       self.hasCompleted = False
       self.completeAt = 0
       self.hasFailed = False
       self.exception = None
 
+      self.delay = 0
       self.startTime = self.scheduler.now()
 
       if self.parent.isAbsolute:
-        self.cancel.disposable = self.scheduler.scheduleAbsolute(
+        self.cancelTimer.disposable = self.scheduler.scheduleAbsolute(
           self.parent.dueTime,
           self.start
         )
@@ -252,7 +64,7 @@ class DelayTime(Producer):
       self.sourceSubscription = SingleAssignmentDisposable()
       self.sourceSubscription.disposable = self.parent.source.subscribeSafe(self)
 
-      return CompositeDisposable(self.sourceSubscription, self.cancel)
+      return CompositeDisposable(self.sourceSubscription, self.cancelTimer)
 
     def elapsed(self):
       return self.scheduler.now() - self.startTime
@@ -273,7 +85,7 @@ class DelayTime(Producer):
         self.evt.release()
 
       self.stop.clear()
-      self.cancel.disposable = Disposable.create(cancel)
+      self.cancelTimer.disposable = Disposable.create(cancel)
       self.scheduler.scheduleLongRunning(self.drainQueue)
 
     def onNext(self, value):
@@ -329,7 +141,7 @@ class DelayTime(Producer):
             now = self.elapsed()
 
             if len(self.queue) > 0:
-              next = self.queue[0]
+              next = self.queue.popleft()
 
               hasValue = True
               value = next.value
@@ -366,6 +178,199 @@ class DelayTime(Producer):
     # end Sink
 
 
+  class Sink(rx.linq.sink.Sink):
+    def __init__(self, parent, observer, cancel):
+      super(DelayTime.Sink, self).__init__(observer, cancel)
+      self.parent = parent
+
+    def run(self):
+      self.scheduler = self.parent.scheduler
+
+      self.cancelTimer = SerialDisposable()
+
+      self.gate = RLock()
+      self.active = False # as soon as a value arrived
+      self.running = False # on relative: True, on absolute: True after absolute time
+      self.queue = deque()
+      self.hasCompleted = False
+      self.completeAt = 0
+      self.hasFailed = False
+      self.exception = None
+
+      self.delay = 0
+      self.startTime = self.scheduler.now()
+
+      if self.parent.isAbsolute:
+        self.ready = False
+        self.cancelTimer.disposable = self.scheduler.scheduleWithAbsolute(
+          self.parent.dueTime,
+          self.start
+        )
+      else:
+        self.ready = True
+        self.delay = Scheduler.normalize(self.parent.dueTime)
+
+      self.sourceSubscription = SingleAssignmentDisposable()
+      self.sourceSubscription.disposable = self.parent.source.subscribeSafe(self)
+
+      return CompositeDisposable(self.sourceSubscription, self.cancelTimer)
+
+    def elapsed(self):
+      return self.scheduler.now() - self.startTime
+
+    def start(self):
+      next = 0
+      shouldRun = False
+
+      with self.gate:
+        self.delay = self.elapsed()
+
+        if len(self.queue) > 0:
+          next = self.queue[0].interval
+
+          for item in self.queue:
+            item.interval += self.delay
+
+          shouldRun = True
+          self.active = True
+
+        self.ready = True
+
+      if shouldRun:
+        self.cancelTimer.disposable = self.scheduler.scheduleRecursiveWithRelative(
+          next,
+          self.drainQueue
+        )
+
+    def onNext(self, value):
+      next = self.elapsed() + self.delay
+      shouldRun = False
+
+      with self.gate:
+        self.queue.append(Struct(value=value, interval=next))
+        shouldRun = self.ready and (not self.active)
+        self.active = True
+
+      if shouldRun:
+        self.cancelTimer.disposable = self.scheduler.scheduleRecursiveWithRelative(
+          self.delay,
+          self.drainQueue
+        )
+
+    def onError(self, exception):
+      self.sourceSubscription.dispose()
+
+      shouldRun = False
+
+      with self.gate:
+        self.queue.clear()
+
+        self.exception = exception
+        self.hasFailed = True
+
+        shouldRun = not self.running
+
+      if shouldRun:
+        self.observer.onError(exception)
+        self.dispose()
+
+    def onCompleted(self):
+      self.sourceSubscription.dispose()
+
+      next = self.elapsed() + self.delay
+      shouldRun = False
+
+      with self.gate:
+        self.completeAt = next
+        self.hasCompleted = True
+
+        shouldRun = self.ready and (not self.active)
+        self.active = True
+
+      if shouldRun:
+        self.cancelTimer.disposable = self.scheduler.scheduleRecursiveWithRelative(
+          self.delay,
+          self.drainQueue
+        )
+
+    def drainQueue(self, recurse):
+      with self.gate:
+        if self.hasFailed:
+          return
+        self.running = True
+
+
+      #
+      # The shouldYield flag was added to address TFS 487881: "Delay can be unfair". In the old
+      # implementation, the loop below kept running while there was work for immediate dispatch,
+      # potentially causing a long running work item on the target scheduler. With the addition
+      # of long-running scheduling in Rx v2.0, we can check whether the scheduler supports this
+      # interface and perform different processing (see LongRunningSink). To reduce the code churn in the old
+      # loop code here, we set the shouldYield flag to true after the first dispatch iteration,
+      # in order to break from the loop and enter the recursive scheduling path.
+
+      shouldYield = False
+
+      while True:
+        hasFailed = False
+        error = None
+
+        value = None
+        hasValue = False
+
+        hasCompleted = False
+
+        shouldRecurse = False
+        recurseDueTime = 0
+
+        with self.gate:
+          if self.hasFailed:
+            error = self.exception
+            hasFailed = True
+            self.running = False
+          else:
+            now = self.elapsed()
+
+            if len(self.queue) > 0:
+              nextDue = self.queue[0].interval
+
+              if nextDue <= now and not shouldYield:
+                value = self.queue.popleft().value
+                hasValue = True
+              else:
+                shouldRecurse = True
+                recurseDueTime = Scheduler.normalize(nextDue - now)
+                self.running = False
+            elif self.hasCompleted:
+              if self.completeAt <= now and not shouldYield:
+                hasCompleted = True
+              else:
+                shouldRecurse = True
+                recurseDueTime = Scheduler.normalize(self.completeAt - now)
+                self.running = False
+            else:
+              self.running = False
+              self.active = False
+        # end with self.gate
+
+        if hasValue:
+          self.observer.onNext(value)
+          shouldYield = True
+        else:
+          if hasCompleted:
+            self.observer.onCompleted()
+            self.dispose()
+          elif hasFailed:
+            self.observer.onError(error)
+            self.dispose()
+          elif shouldRecurse:
+            recurse(recurseDueTime)
+
+          return
+      #end while
+    # end Sink
+
+
 class DelayObservable(Producer):
   def __init__(self, source, subscriptionDelay, delaySelector):
     self.source = source
@@ -377,7 +382,7 @@ class DelayObservable(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(DelayObservable.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -466,7 +471,7 @@ class DelayObservable(Producer):
 
 
 class DelaySubscription(Producer):
-  def __init__(self, source, dueTime, scheduler, isAbsolute):
+  def __init__(self, source, dueTime, isAbsolute, scheduler):
     self.source = source
     self.dueTime = dueTime
     self.scheduler = scheduler
@@ -492,7 +497,7 @@ class DelaySubscription(Producer):
   def delaySubscribe(self, scheduler, sink):
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, observer, cancel):
       super(DelaySubscription.Sink, self).__init__(observer, cancel)
 

@@ -1,7 +1,7 @@
 from rx.disposable import Disposable, CompositeDisposable, SingleAssignmentDisposable, SerialDisposable
 from rx.internal import Struct
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 from collections import deque
 from threading import RLock
 
@@ -37,7 +37,7 @@ class Buffer(Producer):
         setSink(sink)
         return sink.run()
 
-  class SinkWithCount(Sink):
+  class SinkWithCount(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Buffer.SinkWithCount, self).__init__(observer, cancel)
       self.parent = parent
@@ -88,7 +88,7 @@ class Buffer(Producer):
       self.observer.onCompleted()
       self.dispose()
 
-  class SinkWithTimeSpan(Sink):
+  class SinkWithTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Buffer.SinkWithTimeSpan, self).__init__(observer, cancel)
       self.parent = parent
@@ -124,7 +124,7 @@ class Buffer(Producer):
         self.dispose()
 
 
-  class SinkWithTimerAndTimeSpan(Sink):
+  class SinkWithTimerAndTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Buffer.SinkWithTimerAndTimeSpan, self).__init__(observer, cancel)
       self.parent = parent
@@ -215,7 +215,7 @@ class Buffer(Producer):
         self.observer.onCompleted()
         self.dispose()
 
-  class SinkWithCountAndTimeSpan(Sink):
+  class SinkWithCountAndTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Buffer.SinkWithCountAndTimeSpan, self).__init__(observer, cancel)
       self.parent = parent
@@ -237,7 +237,7 @@ class Buffer(Producer):
       m = SingleAssignmentDisposable()
       self.timerDisposable.disposable = m
 
-      m.disposable = self.parent.schedule(
+      m.disposable = self.parent.scheduler.scheduleWithRelativeAndState(
         wId,
         self.parent.timeSpan,
         self.tick

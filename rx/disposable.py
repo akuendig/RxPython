@@ -230,13 +230,18 @@ class SerialDisposable(Cancelable):
         else:
           return self.current
     def fset(self, value):
+      old = None
       shouldDispose = False
 
       with self.lock:
         shouldDispose = self.isDisposed
 
         if not shouldDispose:
+          old = self.current
           self.current = value
+
+      if old != None:
+        old.dispose()
 
       if shouldDispose:
         value.dispose()

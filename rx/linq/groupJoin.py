@@ -3,7 +3,7 @@ from rx.observable import Producer
 from rx.observer import Observer
 from rx.subject import Subject
 from .addRef import AddRef
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -21,7 +21,7 @@ class GroupJoin(Producer):
     return sink.run()
 
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(GroupJoin.Sink, self).__init__(observer, cancel)
       self.parent = parent

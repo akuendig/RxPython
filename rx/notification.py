@@ -5,6 +5,9 @@ class Notification(object):
   KIND_COMPLETED = 2
 
   def __eq__(self, other):
+    if not isinstance(other, Notification):
+      return False
+
     return (
       self.kind == other.kind and
       self.value == other.value and

@@ -1,6 +1,6 @@
 from rx.disposable import Disposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Defer(Producer):
@@ -15,7 +15,7 @@ class Defer(Producer):
   def eval(self):
     return self.observableFactory()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Defer.Sink, self).__init__(observer, cancel)
       self.parent = parent

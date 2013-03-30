@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class FirstAsync(Producer):
@@ -14,7 +14,7 @@ class FirstAsync(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(FirstAsync.Sink, self).__init__(observer, cancel)
       self.parent = parent

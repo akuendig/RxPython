@@ -1,6 +1,6 @@
 from rx.disposable import CompositeDisposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -20,7 +20,7 @@ class TakeCount(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeCount.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -61,7 +61,7 @@ class TakeTime(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

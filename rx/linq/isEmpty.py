@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class IsEmpty(Producer):
@@ -11,7 +11,7 @@ class IsEmpty(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, observer, cancel):
       super(IsEmpty.Sink, self).__init__(observer, cancel)
       self.currentKey = None

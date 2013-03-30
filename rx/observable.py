@@ -188,4 +188,4 @@ class PushToPullAdapter(object):
 
 
 # import linq to add all extension methods
-import rx.linq
+import rx.linq.allOperators

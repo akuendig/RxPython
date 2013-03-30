@@ -3,7 +3,7 @@ from rx.internal import Struct
 from rx.observable import Producer
 from rx.subject import Subject
 from .addRef import AddRef
-from .sink import Sink
+import rx.linq.sink
 from collections import deque
 from threading import RLock
 
@@ -39,7 +39,7 @@ class Window(Producer):
         setSink(sink)
         return sink.run()
 
-  class SinkWithCount(Sink):
+  class SinkWithCount(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Window.SinkWithCount, self).__init__(observer, cancel)
       self.parent = parent
@@ -93,7 +93,7 @@ class Window(Producer):
       self.observer.onCompleted()
       self.dispose()
 
-  class SinkWithTimeSpan(Sink):
+  class SinkWithTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Window.SinkWithTimeSpan, self).__init__(observer, cancel)
       self.parent = parent
@@ -139,7 +139,7 @@ class Window(Producer):
         self.dispose()
 
 
-  class SinkWithTimerAndTimeSpan(Sink):
+  class SinkWithTimerAndTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Window.SinkWithTimerAndTimeSpan, self).__init__(observer, cancel)
       self.parent = parent
@@ -233,7 +233,7 @@ class Window(Producer):
         self.observer.onCompleted()
         self.dispose()
 
-  class SinkWithCountAndTimeSpan(Sink):
+  class SinkWithCountAndTimeSpan(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Window.SinkWithCountAndTimeSpan, self).__init__(observer, cancel)
       self.parent = parent

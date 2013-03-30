@@ -1,6 +1,6 @@
 from rx.disposable import Disposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Finally(Producer):
@@ -13,7 +13,7 @@ class Finally(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Finally.Sink, self).__init__(observer, cancel)
       self.parent = parent

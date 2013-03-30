@@ -16,6 +16,15 @@ def errorIfDisposed(disposable):
 def raiseIsDisposed(*args, **kwargs):
   raise Exception("Object has been disposed")
 
-class Struct:
+class Struct(object):
   def __init__(self, **entries):
     self.__dict__.update(entries)
+
+  def __eq__(self, other):
+    if not isinstance(other, Struct):
+      return False
+
+    return self.__dict__ == other.__dict__
+
+  def __repr__(self):
+    return repr(self.__dict__)

@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable
 from rx.observable import Observable, Producer
 from rx.observer import Observer
-from .sink import Sink
+import rx.linq.sink
 from collections import deque
 from threading import RLock
 
@@ -22,7 +22,7 @@ class SequenceEqual(Producer):
       setSink(sink)
       return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SequenceEqual.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -134,7 +134,7 @@ class SequenceEqual(Producer):
     #end R
   #end Sink
 
-  class IterableSink(Sink):
+  class IterableSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SequenceEqual.IterableSink, self).__init__(observer, cancel)
       self.parent = parent

@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -15,7 +15,7 @@ class TakeUntilObservable(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeUntilObservable.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -98,7 +98,7 @@ class TakeUntilTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeUntilTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

@@ -1,6 +1,6 @@
 from rx.internal import Struct
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 from collections import deque
 
 
@@ -14,7 +14,7 @@ class SkipLastCount(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipLastCount.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -46,7 +46,7 @@ class SkipLastTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipLastTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

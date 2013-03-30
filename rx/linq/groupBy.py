@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, RefCountDisposable
 from rx.observable import GroupObservable, Producer
 from rx.subject import Subject
-from .sink import Sink
+import rx.linq.sink
 
 
 class GroupBy(Producer):
@@ -21,7 +21,7 @@ class GroupBy(Producer):
     return self.refCountDisposable
 
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(GroupBy.Sink, self).__init__(observer, cancel)
       self.parent = parent

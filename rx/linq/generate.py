@@ -1,6 +1,6 @@
 from rx.disposable import Disposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Generate(Producer):
@@ -27,7 +27,7 @@ class Generate(Producer):
       setSink(sink)
       return sink.run()
 
-  class AlphaSink(Sink):
+  class AlphaSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Generate.AlphaSink, self).__init__(observer, cancel)
       self.parent = parent
@@ -69,10 +69,14 @@ class Generate(Producer):
         self.dispose()
         return Disposable.empty()
 
-      return self.scheduleWithAbsoluteAndState(state, time, self.invokeRec)
+      return self.parent.scheduler.scheduleWithAbsoluteAndState(
+        state,
+        time,
+        self.invokeRec
+      )
 
 
-  class DeltaSink(Sink):
+  class DeltaSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Generate.DeltaSink, self).__init__(observer, cancel)
       self.parent = parent
@@ -114,9 +118,13 @@ class Generate(Producer):
         self.dispose()
         return Disposable.empty()
 
-      return self.scheduleWithRelativeAndState(state, time, self.invokeRec)
+      return self.parent.scheduler.scheduleWithRelativeAndState(
+        state,
+        time,
+        self.invokeRec
+      )
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Generate.Sink, self).__init__(observer, cancel)
       self.parent = parent

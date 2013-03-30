@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, Disposable, SerialDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -16,7 +16,7 @@ class ThrottleTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(ThrottleTime.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -91,7 +91,7 @@ class ThrottleObservable(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(ThrottleObservable.Sink, self).__init__(observer, cancel)
       self.parent = parent

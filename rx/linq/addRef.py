@@ -1,6 +1,6 @@
 from rx.disposable import CompositeDisposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class AddRef(Producer):
@@ -16,7 +16,7 @@ class AddRef(Producer):
 
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, observer, cancel):
       super(AddRef.Sink, self).__init__(observer, cancel)
 

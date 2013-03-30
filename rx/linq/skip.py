@@ -1,7 +1,7 @@
 from rx.concurrency import Atomic
 from rx.disposable import CompositeDisposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class SkipCount(Producer):
@@ -17,7 +17,7 @@ class SkipCount(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipCount.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -55,7 +55,7 @@ class SkipTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

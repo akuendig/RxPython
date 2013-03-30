@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 from queue import Queue
 
@@ -21,7 +21,7 @@ class Merge(Producer):
       setSink(sink)
       return sink.run()
 
-  class SerialSink(Sink):
+  class SerialSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Merge.SerialSink, self).__init__(observer, cancel)
       self.parent = parent
@@ -94,7 +94,7 @@ class Merge(Producer):
             self.parent.dispose()
 
 
-  class ConcurrentSink(Sink):
+  class ConcurrentSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Merge.ConcurrentSink, self).__init__(observer, cancel)
       self.parent = parent

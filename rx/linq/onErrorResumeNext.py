@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import TailRecursiveSink
+import rx.linq.sink
 
 
 class OnErrorResumeNext(Producer):
@@ -11,7 +11,7 @@ class OnErrorResumeNext(Producer):
     setSink(sink)
     return sink.run(self.sources)
 
-  class Sink(TailRecursiveSink):
+  class Sink(rx.linq.sink.TailRecursiveSink):
     def __init__(self, observer, cancel):
       super(OnErrorResumeNext.Sink, self).__init__(observer, cancel)
       self.currentKey = None

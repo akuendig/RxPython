@@ -1,7 +1,6 @@
 from rx.disposable import SingleAssignmentDisposable
 from rx.observer import Observer
-from .sink import Sink
-import logging
+import rx.linq.sink
 from queue import Empty, Queue
 from threading import Semaphore
 
@@ -62,7 +61,7 @@ class GetIterator(Observer):
     self.disposed = True
     self.gate.release()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(GetIterator.Sink, self).__init__(observer, cancel)
       self.parent = parent

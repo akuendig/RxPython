@@ -1,7 +1,7 @@
 from rx.disposable import BooleanDisposable, Disposable
 from rx.internal import Struct
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class ToObservable(Producer):
@@ -14,7 +14,7 @@ class ToObservable(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(ToObservable.Sink, self).__init__(observer, cancel)
       self.parent = parent

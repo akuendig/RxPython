@@ -1,7 +1,7 @@
 from rx.observer import Observer
 from rx.observable import Producer
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -82,7 +82,7 @@ class Amb(Producer):
       self.disposable.dispose()
   #end AmbObserver
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Amb.Sink, self).__init__(observer, cancel)
       self.parent = parent

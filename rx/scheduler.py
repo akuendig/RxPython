@@ -1,5 +1,5 @@
 from rx.concurrency import Atomic
-from rx.disposable import AsyncLock, Disposable, BooleanDisposable, CompositeDisposable, SingleAssignmentDisposable
+from rx.disposable import AsyncLock, Disposable, BooleanDisposable, CompositeDisposable, SerialDisposable, SingleAssignmentDisposable
 from rx.internal import defaultNow, defaultSubComparer
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -399,7 +399,30 @@ class VirtualTimeScheduler(Scheduler):
     return self.scheduleRelativeWithState(state, self.toRelative(dueTime - self.now()), action)
 
   def schedulePeriodicWithState(self, state, period, action):
-    raise NotImplementedError()
+    cancel = SerialDisposable()
+    handler = None
+
+    def _replace(disposable):
+      cancel.disposable = disposable
+      return Disposable.empty()
+
+    handler = lambda _scheduler, _state: _replace(
+      _scheduler.scheduleWithRelativeAndState(
+        action(_state),
+        period,
+        handler
+      )
+    )
+
+    _replace(
+      self.scheduleWithRelativeAndState(
+        state,
+        period,
+        handler
+      )
+    )
+
+    return cancel
 
   def scheduleRelativeWithState(self, state, dueTime, action):
     runAt = self.add(self.clock, dueTime)
@@ -564,14 +587,13 @@ class ImmediateScheduler(Scheduler):
 class RecursiveScheduledFunction(object):
   def __init__(self, action, scheduler, method = None):
     self.action = action
-    self.schedule = scheduler if method == None else scheduler[method]
     self.group = CompositeDisposable()
     self.lock = RLock()
 
     if method == None:
       self.schedule = scheduler.scheduleWithState
     else:
-      self.schedule = bind(getattr(scheduler, method), scheduler)
+      self.schedule = getattr(scheduler, method)
 
   def run(self, state):
     self.action(state, self.actionCallback)

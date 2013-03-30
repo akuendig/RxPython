@@ -2,7 +2,7 @@ from rx.concurrency import Atomic
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer, NoopObserver
-from .sink import Sink
+import rx.linq.sink
 
 
 class SkipUntilObservable(Producer):
@@ -15,7 +15,7 @@ class SkipUntilObservable(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipUntilObservable.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -94,7 +94,7 @@ class SkipUntilTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SkipUntilTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

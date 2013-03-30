@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import ConcatSink
+import rx.linq.sink
 
 
 class For(Producer):
@@ -16,7 +16,7 @@ class For(Producer):
     for x in self.source:
       yield self.resultSelector(x)
 
-  class Sink(ConcatSink):
+  class Sink(rx.linq.sink.ConcatSink):
     def __init__(self, observer, cancel):
       super(For.Sink, self).__init__(observer, cancel)
 

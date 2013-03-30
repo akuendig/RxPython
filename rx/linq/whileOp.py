@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import ConcatSink
+import rx.linq.sink
 
 
 class While(Producer):
@@ -16,7 +16,7 @@ class While(Producer):
     while self.condition():
       yield self.source
 
-  class Sink(ConcatSink):
+  class Sink(rx.linq.sink.ConcatSink):
     def __init__(self, observer, cancel):
       super(While.Sink, self).__init__(observer, cancel)
 

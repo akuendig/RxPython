@@ -1,7 +1,7 @@
 from rx.concurrency import Atomic
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Timer(Producer):
@@ -21,7 +21,7 @@ class Timer(Producer):
       setSink(sink)
       return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Timer.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -37,14 +37,14 @@ class Timer(Producer):
       self.observer.onCompleted()
       self.dispose()
 
-  class PeriodSink(Sink):
+  class PeriodSink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Timer.PeriodSink, self).__init__(observer, cancel)
       self.parent = parent
       self.pendingTickCount = Atomic(0)
 
     def run(self):
-      if slef.parent.isAbsolute:
+      if self.parent.isAbsolute:
         return self.parent.scheduler.scheduleWithAbsoluteAndState(
           None,
           self.parent.dueTime,
@@ -53,8 +53,8 @@ class Timer(Producer):
       else:
         dueTime = self.parent.dueTime
 
-        if dueTime == self.period:
-          return self.parent.scheduler.schedulePeriodicWithState(0, self.period, self.tick)
+        if dueTime == self.parent.period:
+          return self.parent.scheduler.schedulePeriodicWithState(0, self.parent.period, self.tick)
 
         return self.parent.scheduler.scheduleWithState(None, dueTime, self.invokeStart)
 
@@ -115,7 +115,7 @@ class Timer(Producer):
 
       d = SingleAssignmentDisposable()
       self.periodic = d
-      d.disposable = scheduler.schedulePeriodicWithState(1, self.period, self.tock)
+      d.disposable = scheduler.schedulePeriodicWithState(1, self.parent.period, self.tock)
 
       try:
         self.observer.onNext(0)

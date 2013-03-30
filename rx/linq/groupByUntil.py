@@ -2,7 +2,7 @@ from rx.disposable import CompositeDisposable, RefCountDisposable, SingleAssignm
 from rx.observable import GroupObservable, Producer
 from rx.observer import Observer
 from rx.subject import Subject
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -24,7 +24,7 @@ class GroupByUntil(Producer):
     return self.refCountDisposable
 
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(GroupByUntil.Sink, self).__init__(observer, cancel)
       self.parent = parent

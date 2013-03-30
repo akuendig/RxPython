@@ -1,6 +1,6 @@
 from rx.disposable import Disposable, CompositeDisposable
 from rx.observable import Producer, ConnectableObservable
-from .sink import Sink
+import rx.linq.sink
 
 
 class Multicast(Producer):
@@ -14,7 +14,7 @@ class Multicast(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Multicast.Sink, self).__init__(observer, cancel)
       self.parent = parent

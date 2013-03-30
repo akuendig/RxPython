@@ -1851,7 +1851,7 @@ class TestTime(ReactiveTest):
   def test_buffer_with_time(self):
     sched = TestScheduler()
 
-    o = sched.createHotObservable(
+    xs = sched.createHotObservable(
       (190, OnNext(1)),
       (210, OnNext(2)),
       (220, OnNext(3)),
@@ -1859,10 +1859,11 @@ class TestTime(ReactiveTest):
       (240, OnCompleted())
     )
 
-    observer = sched.start(lambda: o.bufferWithTime(20, 10, sched))
+    o = sched.start(
+      lambda: xs.bufferWithTime(20, 10, sched)
+    )
 
-    self.assertHasValues(
-      observer, [
+    self.assertHasValues(o, [
         (220, [2, 3]),
         (230, [3, 4]),
         (240, [4]),
@@ -1872,6 +1873,183 @@ class TestTime(ReactiveTest):
       "bufferWithTime should buffer correctly"
     )
 
+  def test_buffer_with_time_and_count(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (190, OnNext(1)),
+      (210, OnNext(2)),
+      (220, OnNext(3)),
+      (225, OnNext(4)),
+      (230, OnNext(5)),
+      (260, OnNext(6)),
+      (270, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.bufferWithTimeAndCount(30, 3, sched)
+    )
+
+    self.assertHasValues(o, [
+        (225, [2, 3, 4]),
+        (255, [5]),
+        (270, [6]),
+      ],
+      270,
+      "bufferWithTime should buffer correctly"
+    )
+
+  def test_delay_relative(self):
+    sched, xs, messages = self.simpleHot(1)
+
+    o = sched.start(
+      lambda: xs.delayRelative(30, sched)
+    )
+
+    self.assertHasValues(o, [
+        (240, 1),
+      ],
+      250,
+      "delayRelative should delay values"
+    )
+
+  def test_delay_absolute(self):
+    sched, xs, messages = self.simpleHot(1, 2)
+
+    o = sched.start(
+      lambda: xs.delayAbsolute(240, sched)
+    )
+
+    self.assertHasValues(o, [
+        (250, 1),
+        (260, 2),
+      ],
+      260,
+      "delayRelative should delay values"
+    )
+
+  def test_delay_individual(self):
+    sched, xs, messages = self.simpleHot(1, 2)
+
+    o = sched.start(
+      lambda: xs.delayIndividual(
+        lambda x: Observable.timerRelative(x*10, None, sched),
+        Observable.timerRelative(15, None, sched)
+      )
+    )
+
+    self.assertHasValues(o, [
+        (240, 2),
+      ],
+      240,
+      "delayIndividual should delay values and optinally the subscription"
+    )
+
+  def test_delay_subscription_relative(self):
+    sched, xs, messages = self.simpleHot(1, 2)
+
+    o = sched.start(
+      lambda: xs.delaySubscriptionRelative(15, sched)
+    )
+
+    self.assertHasValues(o, [
+        (220, 2),
+      ],
+      230,
+      "delaySubscriptionRelative should delay the subscription"
+    )
+
+    self.assertSequenceEqual(
+      [Struct(subscribe=215, unsubscribe=230)],
+      xs.subscriptions
+    )
+
+  def test_delay_subscription_absolute(self):
+    sched, xs, messages = self.simpleHot(1, 2)
+
+    o = sched.start(
+      lambda: xs.delaySubscriptionAbsolute(215, sched)
+    )
+
+    self.assertHasValues(o, [
+        (220, 2),
+      ],
+      230,
+      "delaySubscriptionAbsolute should delay the subscription"
+    )
+
+    self.assertSequenceEqual(
+      [Struct(subscribe=215, unsubscribe=230)],
+      xs.subscriptions
+    )
+
+  def test_generate_relative(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.generateRelative(
+        0,
+        lambda x: x < 5,
+        lambda x: x + 1,
+        lambda x: x * x,
+        lambda x: 10,
+        sched
+      )
+    )
+
+    self.assertHasValues(o, [
+        (210, 0),
+        (220, 1),
+        (230, 4),
+        (240, 9),
+        (250, 16),
+      ],
+      250,
+      "generateRelative should use generator to generate values and yield them after some relative time"
+    )
+
+  def test_generate_absolute(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.generateAbsolute(
+        0,
+        lambda x: x < 5,
+        lambda x: x + 1,
+        lambda x: x * x,
+        lambda x: 200 + 10*x,
+        sched
+      )
+    )
+
+    self.assertHasValues(o, [
+        (200, 0),
+        (210, 1),
+        (220, 4),
+        (230, 9),
+        (240, 16),
+      ],
+      240,
+      "generateAbsolute should use generator to generate values and yield them at some absolute time"
+    )
+
+  def test_interval(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.interval(120, sched)
+    )
+
+    self.assertHasValues(o, [
+        (320, 0),
+        (440, 1),
+        (560, 2),
+        (680, 3),
+        (800, 4),
+        (920, 5),
+      ],
+      None,
+      "interval should delay values and optinally the subscription"
+    )
 
 
 
@@ -1881,7 +2059,7 @@ class TestTime(ReactiveTest):
 
 
     # import pdb; pdb.set_trace()
-    # import sys; sys.stdout.write(observer)
+    # import sysr; sys.stdout.write(observer)
 
 
 

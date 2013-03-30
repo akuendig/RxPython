@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Range(Producer):
@@ -13,7 +13,7 @@ class Range(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Range.Sink, self).__init__(observer, cancel)
       self.parent = parent

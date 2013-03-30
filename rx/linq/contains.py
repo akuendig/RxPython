@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class Contains(Producer):
@@ -16,7 +16,7 @@ class Contains(Producer):
   def getSources(self):
     return self.sources
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(Contains.Sink, self).__init__(observer, cancel)
       self.parent = parent

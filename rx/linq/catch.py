@@ -1,7 +1,7 @@
 from rx.disposable import SerialDisposable, SingleAssignmentDisposable
 from rx.observable import Producer
 from rx.observer import Observer
-from .sink import Sink, TailRecursiveSink
+import rx.linq.sink
 
 
 class CatchFallback(Producer):
@@ -13,7 +13,7 @@ class CatchFallback(Producer):
     setSink(sink)
     return sink.run(self.sources)
 
-  class Sink(TailRecursiveSink):
+  class Sink(rx.linq.sink.TailRecursiveSink):
     def __init__(self, observer, cancel):
       super(CatchFallback.Sink, self).__init__(observer, cancel)
       self.lastException = None
@@ -55,7 +55,7 @@ class CatchException(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(CatchException.Sink, self).__init__(observer, cancel)
       self.parent = parent

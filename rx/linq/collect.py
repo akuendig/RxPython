@@ -1,5 +1,5 @@
 from rx.observable import PushToPullAdapter
-from .sink import PushToPullSink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -14,7 +14,7 @@ class Collect(PushToPullAdapter):
     sink = self.Sink(self, subscription)
     return sink
 
-  class Sink(PushToPullSink):
+  class Sink(rx.linq.sink.PushToPullSink):
     def __init__(self, parent, subscription):
       super(Collect.Sink, self).__init__(subscription)
       self.parent = parent

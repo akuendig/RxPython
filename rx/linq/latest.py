@@ -1,6 +1,6 @@
 from rx.notification import Notification
 from rx.observable import PushToPullAdapter
-from .sink import PushToPullSink
+import rx.linq.sink
 from threading import RLock, BoundedSemaphore
 
 
@@ -11,7 +11,7 @@ class Latest(PushToPullAdapter):
   def run(self, subscription):
     return self.Sink(subscription)
 
-  class Sink(PushToPullSink):
+  class Sink(rx.linq.sink.PushToPullSink):
     def __init__(self, subscription):
       super(Latest.Sink, self).__init__(subscription)
       self.gate = RLock()

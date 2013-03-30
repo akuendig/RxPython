@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.observable import Observable, Producer
 from rx.observer import Observer
-from .sink import Sink
+import rx.linq.sink
 from threading import RLock
 
 
@@ -27,7 +27,7 @@ class SelectMany(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(SelectMany.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -164,7 +164,7 @@ class SelectMany(Producer):
     #end LockingObserver
   #end Sink
 
-  # class IterableSink(Sink):
+  # class IterableSink(rx.linq.sink.Sink):
   #   def __init__(self, parent, observer, cancel):
   #     super(SelectMany.IterableSink, self).__init__(observer, cancel)
   #     self.parent = parent

@@ -1,7 +1,7 @@
 from rx.disposable import CompositeDisposable, SingleAssignmentDisposable
 from rx.internal import Struct
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 from collections import deque
 
 
@@ -16,7 +16,7 @@ class TakeLastCount(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeLastCount.Sink, self).__init__(observer, cancel)
       self.parent = parent
@@ -79,7 +79,7 @@ class TakeLastTime(Producer):
     setSink(sink)
     return sink.run()
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeLastTime.Sink, self).__init__(observer, cancel)
       self.parent = parent

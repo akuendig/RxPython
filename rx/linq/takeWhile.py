@@ -1,5 +1,5 @@
 from rx.observable import Producer
-from .sink import Sink
+import rx.linq.sink
 
 
 class TakeWhile(Producer):
@@ -13,7 +13,7 @@ class TakeWhile(Producer):
     setSink(sink)
     return self.source.subscribeSafe(sink)
 
-  class Sink(Sink):
+  class Sink(rx.linq.sink.Sink):
     def __init__(self, parent, observer, cancel):
       super(TakeWhile.Sink, self).__init__(observer, cancel)
       self.parent = parent
