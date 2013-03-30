@@ -150,7 +150,7 @@ class Window(Producer):
       self.nextSpan = self.parent.timeSpan
 
       self.gate = RLock()
-      self.q = Queue()
+      self.queue = deque()
 
       self.timerDisposable = SerialDisposable()
 
@@ -166,7 +166,7 @@ class Window(Producer):
 
     def createWindow(self):
       s = Subject()
-      self.q.put(s)
+      self.queue.append(s)
       self.observer.onNext(AddRef(s, self.refCountDisposable))
 
     def createTimer(self):
@@ -202,7 +202,7 @@ class Window(Producer):
     def tick(self, scheduler, state):
       with self.gate:
         if state.isSpan:
-          s = self.q.get()
+          s = self.queue.popleft()
           s.onCompleted()
 
         if state.isShift:
@@ -214,21 +214,21 @@ class Window(Producer):
 
     def onNext(self, value):
       with self.gate:
-        for s in self.q:
+        for s in self.queue:
           s.onNext(value)
 
     def onError(self, exception):
       with self.gate:
-        while not self.q.empty():
-          self.q.get().onError(exception)
+        for o in self.queue:
+          o.onError(exception)
 
         self.observer.onError(exception)
         self.dispose()
 
     def onCompleted(self):
       with self.gate:
-        while not self.q.empty():
-          self.q.get().onCompleted()
+        for o in self.queue:
+          o.onCompleted()
 
         self.observer.onCompleted()
         self.dispose()
@@ -240,7 +240,7 @@ class Window(Producer):
 
     def run(self):
       self.gate = RLock()
-      self.s = None
+      self.s = Subject()
       self.n = 0
       self.windowId = 0
 
@@ -248,7 +248,6 @@ class Window(Producer):
       groupDisposable = CompositeDisposable(self.timerDisposable)
       self.refCountDisposable = RefCountDisposable(groupDisposable)
 
-      self.s = Subject()
       # AddRef was originally WindowObservable but this is just an alias for AddRef
       self.observer.onNext(AddRef(self.s, self.refCountDisposable))
       self.createTimer(0)
@@ -261,7 +260,7 @@ class Window(Producer):
       m = SingleAssignmentDisposable()
       self.timerDisposable.disposable = m
 
-      m.disposable = self.parent.schedule(
+      m.disposable = self.parent.scheduler.scheduleWithRelativeAndState(
         wId,
         self.parent.timeSpan,
         self.tick
@@ -293,7 +292,7 @@ class Window(Producer):
       newId = 0
 
       with self.gate:
-        self.list.append(value)
+        self.s.onNext(value)
         self.n += 1
 
         if self.n == self.parent.count:

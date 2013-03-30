@@ -1,6 +1,5 @@
 import unittest
-    # sys.stdout.write(str(dir(a)))
-# from rx.linq import Observable
+
 from rx.disposable import Disposable
 from rx.internal import Struct
 from rx.observable import Observable
@@ -8,9 +7,6 @@ from rx.scheduler import Scheduler
 from rx.subject import Subject
 
 from test.reactive import OnNext, OnError, OnCompleted, TestScheduler, ReactiveTest
-
-def rep(value, count):
-  return Observable.fromIterable([value]*count)
 
 class TestAggregation(ReactiveTest):
   def test_aggregate(self):
@@ -404,13 +400,14 @@ class TestBlocking(ReactiveTest):
     def getNewCollector(acc):
       return []
 
-    o = rep(5, 4)
+    values = [3, 2, 1]
+    o = Observable.fromIterable(values)
     a = []
 
     for acc in o.collect(getInitialCollector, merge, getNewCollector):
        a += acc
 
-    self.assertSequenceEqual([5, 5, 5, 5], a, "collected array should be [5]*4", list)
+    self.assertSequenceEqual(values, a, "collected array should be [5]*4", list)
 
   def test_first(self):
     o = Observable.fromIterable([3, 2, 1])
@@ -2051,16 +2048,300 @@ class TestTime(ReactiveTest):
       "interval should delay values and optinally the subscription"
     )
 
+  def test_sample_with_time(self):
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
 
+    o = sched.start(
+      lambda: xs.sampleWithTime(17, sched)
+    )
 
+    self.assertHasValues(o, [
+        (217, 1),
+        (234, 3),
+        (251, 5),
+      ],
+      268,
+      "sampleWithTime take the next previouse every 'interval' seconds"
+    )
 
+  def test_sample_with_observable(self):
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
+    ys = sched.createHotObservable(
+      (217, OnNext(0)),
+      (234, OnNext(0)),
+      (251, OnNext(0)),
+      (268, OnNext(0))
+    )
 
+    o = sched.start(
+      lambda: xs.sampleWithObservable(ys)
+    )
 
+    self.assertHasValues(o, [
+        (217, 1),
+        (234, 3),
+        (251, 5),
+      ],
+      268,
+      "sampleWithObservable take the previouse value on every onNext"
+    )
 
+  def test_throttle(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(1)),
+      (220, OnNext(2)),
+      (250, OnNext(3)),
+      (270, OnNext(4)),
+      (271, OnCompleted())
+    )
 
-    # import pdb; pdb.set_trace()
-    # import sysr; sys.stdout.write(observer)
+    o = sched.start(
+      lambda: xs.throttle(15, sched)
+    )
 
+    self.assertHasValues(o, [
+        (235, 2),
+        (265, 3),
+        (271, 4),
+      ],
+      271,
+      "throttle should wait at least 'interval' befor yielding the most recent value"
+    )
+
+  def test_throttle_individual(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnNext(30)),
+      (280, OnNext(40)),
+      (281, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.throttleIndividual(
+        lambda x: Observable.timerRelative(x, scheduler=sched)
+      )
+    )
+
+    self.assertHasValues(o, [
+        (220, 10),
+        (270, 30),
+        (281, 40),
+      ],
+      281,
+      "throttleIndividual should wait for the observable before yielding the most recent value"
+    )
+
+  def test_time_interval(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnNext(30)),
+      (280, OnNext(40)),
+      (281, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.timeInterval(sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, Struct(value=10, interval=10)),
+        (230, Struct(value=20, interval=20)),
+        (240, Struct(value=30, interval=10)),
+        (280, Struct(value=40, interval=40)),
+      ],
+      281,
+      "timeInterval should timestamp values with the interval between consecutive values"
+    )
+
+  def test_timeout_relative(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnNext(30)),
+      (250, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.timeoutRelative(5, scheduler=sched)
+    )
+
+    self.assertHasError(
+      o,
+      "Timeout in observable",
+      205,
+      "timeoutRelative should time out after relative time"
+    )
+
+  def test_timeout_absolute(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnNext(30)),
+      (250, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.timeoutAbsolute(205, scheduler=sched)
+    )
+
+    self.assertHasError(
+      o,
+      "Timeout in observable",
+      205,
+      "timeoutAbsolute should time out after relative time"
+    )
+
+  def test_timeout_individual(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(10)),
+      (230, OnNext(20)),
+      (240, OnNext(30)),
+      (250, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.timeoutIndividual(
+        lambda x: Observable.timerRelative(x, scheduler=sched),
+        Observable.timerAbsolute(215, scheduler=sched)
+      )
+    )
+
+    self.assertHasError(
+      o,
+      "Timeout in observable",
+      220,
+      "timeoutIndividual should time out after individual time"
+    )
+
+  def test_timer_relative_1(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.timerRelative(10, None, sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, 0),
+      ],
+      210,
+      "timerRelative should yield index after relative time"
+    )
+
+  def test_timer_relative_2(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.timerRelative(10, 400, sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, 0),
+        (610, 1),
+      ],
+      None,
+      "timerRelative should yield index after relative time and every period"
+    )
+
+  def test_timer_absolute_1(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.timerAbsolute(210, None, sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, 0),
+      ],
+      210,
+      "timerAbsolute should yield index after absolute time"
+    )
+
+  def test_timer_absolute_2(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.timerAbsolute(210, 400, sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, 0),
+        (610, 1),
+      ],
+      None,
+      "timerAbsolute should yield index after absolute time and every period"
+    )
+
+  def test_window(self):
+    sched, xs, messages = self.simpleHot(1, 2, 3)
+
+    o = sched.start(
+      lambda: xs.timestamp(sched)
+    )
+
+    self.assertHasValues(o, [
+        (210, Struct(value=1, timestamp=210)),
+        (220, Struct(value=2, timestamp=220)),
+        (230, Struct(value=3, timestamp=230)),
+      ],
+      240,
+      "timeStamp should associate a timestamp to every value"
+    )
+
+  def test_window_with_time(self):
+    sched, xs, messages = self.simpleHot(1, 2, 3, 4, 5)
+
+    o = sched.start(
+      lambda: xs.windowWithTime(30, 10, sched).selectMany(
+        lambda ys: ys.toList()
+      ),
+      subscribed=205
+    )
+
+    self.assertHasValues(o, [
+        (235, [1, 2, 3]),
+        (245, [2, 3, 4]),
+        (255, [3, 4, 5]),
+        (260, [4, 5]),
+        (260, [5]),
+        (260, []),
+      ],
+      260,
+      "windowWithTime should create a new observable every period and yield every value on all current observables (windows)"
+    )
+
+  def test_window_with_time_and_count(self):
+    sched = TestScheduler()
+    xs = sched.createHotObservable(
+      (210, OnNext(1)),
+      (215, OnNext(2)),
+      (220, OnNext(3)),
+      (240, OnNext(4)),
+      (250, OnCompleted())
+    )
+
+    o = sched.start(
+      lambda: xs.windowWithTimeAndCount(30, 2, sched).selectMany(
+        lambda ys: ys.toList()
+      ),
+      subscribed=205
+    )
+
+    self.assertHasValues(o, [
+        (215, [1, 2]),
+        (240, [3, 4]),
+        (250, []),
+      ],
+      250,
+      "windowWithTimeAndCount should create a new window either after 'count' values or after 'period'. There should not be more than one active window"
+    )
 
 
 if __name__ == '__main__':

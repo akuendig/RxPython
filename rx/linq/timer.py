@@ -54,9 +54,17 @@ class Timer(Producer):
         dueTime = self.parent.dueTime
 
         if dueTime == self.parent.period:
-          return self.parent.scheduler.schedulePeriodicWithState(0, self.parent.period, self.tick)
+          return self.parent.scheduler.schedulePeriodicWithState(
+            0,
+            self.parent.period,
+            self.tick
+          )
 
-        return self.parent.scheduler.scheduleWithState(None, dueTime, self.invokeStart)
+        return self.parent.scheduler.scheduleWithRelativeAndState(
+          None,
+          dueTime,
+          self.invokeStart
+        )
 
     def tick(self, count):
       self.observer.onNext(count)

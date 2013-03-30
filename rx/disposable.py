@@ -174,6 +174,7 @@ class RefCountDisposable(Cancelable):
       if self.isDisposed:
         return Disposable.empty()
       else:
+        self.count += 1
         return self.InnerDisposable(self)
 
   def release(self):

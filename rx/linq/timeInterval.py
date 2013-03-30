@@ -25,7 +25,7 @@ class TimeInterval(Producer):
       return self.parent.source.subscribeSafe(self)
 
     def elapsed(self):
-      return self.scheduler.now() - self.startTime
+      return self.parent.scheduler.now() - self.startTime
 
     def onNext(self, value):
       now = self.elapsed()

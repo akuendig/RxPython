@@ -25,24 +25,24 @@ class ThrottleTime(Producer):
       self.gate = RLock()
       self.value = None
       self.hasValue = False
-      self.cancel = SerialDisposable()
+      self.propagatorDisposable = SerialDisposable()
       self.resourceId = 0
 
       subscription = self.parent.source.subscribeSafe(self)
 
-      return CompositeDisposable(subscription, self.cancel)
+      return CompositeDisposable(subscription, self.propagatorDisposable)
 
     def onNext(self, value):
       currentId = 0
 
-      with self.lock:
+      with self.gate:
         self.hasValue = True
         self.value = value
         self.resourceId += 1
         currentId = self.resourceId
 
       d = SingleAssignmentDisposable()
-      self.cancel.disposable = d
+      self.propagatorDisposable.disposable = d
       d.disposable = self.parent.scheduler.scheduleWithRelativeAndState(
         currentId,
         self.parent.dueTime,
@@ -58,7 +58,7 @@ class ThrottleTime(Producer):
       return Disposable.empty()
 
     def onError(self, exception):
-      self.cancel.dispose()
+      self.propagatorDisposable.dispose()
 
       with self.gate:
         self.observer.onError(exception)
@@ -68,7 +68,7 @@ class ThrottleTime(Producer):
         self.resourceId += 1
 
     def onCompleted(self):
-      self.cancel.dispose()
+      self.propagatorDisposable.dispose()
 
       with self.gate:
         if self.hasValue:
@@ -100,12 +100,12 @@ class ThrottleObservable(Producer):
       self.gate = RLock()
       self.value = None
       self.hasValue = False
-      self.cancel = SerialDisposable()
+      self.throttleDisposable = SerialDisposable()
       self.resourceId = 0
 
       subscription = self.parent.source.subscribeSafe(self)
 
-      return CompositeDisposable(subscription, self.cancel)
+      return CompositeDisposable(subscription, self.throttleDisposable)
 
     def onNext(self, value):
       throttle = None
@@ -128,11 +128,11 @@ class ThrottleObservable(Producer):
         currentId = self.resourceId
 
       d = SingleAssignmentDisposable()
-      self.cancel.disposable = d
+      self.throttleDisposable.disposable = d
       d.disposable = throttle.subscribeSafe(self.Delta(self, value, currentId, d))
 
     def onError(self, exception):
-      self.cancel.dispose()
+      self.throttleDisposable.dispose()
 
       with self.gate:
         self.observer.onError(exception)
@@ -142,7 +142,7 @@ class ThrottleObservable(Producer):
         self.resourceId += 1
 
     def onCompleted(self):
-      self.cancel.dispose()
+      self.throttleDisposable.dispose()
 
       with self.gate:
         if self.hasValue:

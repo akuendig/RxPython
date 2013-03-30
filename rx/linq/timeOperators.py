@@ -158,7 +158,7 @@ def timeoutAbsolute(self, dueTime, other=None, scheduler=Scheduler.timeBasedOper
   return TimeoutAbsolute(self, dueTime, other, scheduler)
 Observable.timeoutAbsolute = timeoutAbsolute
 
-def timeoutIndividual(self, dueTime, durationSelector, firstTimeout=None, other=None):
+def timeoutIndividual(self, durationSelector, firstTimeout=None, other=None):
   assert isinstance(self, Observable)
 
   if firstTimeout == None:
@@ -169,7 +169,7 @@ def timeoutIndividual(self, dueTime, durationSelector, firstTimeout=None, other=
   assert isinstance(firstTimeout, Observable)
   assert isinstance(other, Observable)
 
-  return TimeoutObservable(self, dueTime, firstTimeout, other)
+  return TimeoutObservable(self, firstTimeout, durationSelector, other)
 Observable.timeoutIndividual = timeoutIndividual
 
 def timerRelative(dueTime, period=None, scheduler=Scheduler.timeBasedOperation):
@@ -184,12 +184,12 @@ def timerAbsolute(dueTime, period=None, scheduler=Scheduler.timeBasedOperation):
   return Timer(dueTime, True, period, scheduler)
 Observable.timerAbsolute = timerAbsolute
 
-def timeStamp(self, scheduler=Scheduler.timeBasedOperation):
+def timestamp(self, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
   return TimeStamp(self, scheduler)
-Observable.timeStamp = timeStamp
+Observable.timestamp = timestamp
 
 def windowWithTime(self, timeSpan, timeShift=None, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
@@ -197,7 +197,7 @@ def windowWithTime(self, timeSpan, timeShift=None, scheduler=Scheduler.timeBased
 
   if timeShift == None:
     timeShift = timeSpan
-  return Window(timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
+  return Window(self, timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
 Observable.windowWithTime = windowWithTime
 
 def windowWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeBasedOperation):
@@ -206,5 +206,5 @@ def windowWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeB
 
   if count == None:
     count = timeSpan
-  return Window(timeSpan=timeSpan, count=count, scheduler=scheduler)
+  return Window(self, timeSpan=timeSpan, count=count, scheduler=scheduler)
 Observable.windowWithTimeAndCount = windowWithTimeAndCount

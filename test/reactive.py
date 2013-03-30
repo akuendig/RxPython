@@ -234,9 +234,9 @@ class ReactiveTest(unittest.TestCase):
   def assertHasError(self, observer, exceptionText, at, text):
     errors = [x for x in observer.messages if x[1].kind == Notification.KIND_ERROR]
 
-    self.assertEqual(1, len(errors), text)
-    self.assertEqual(at, errors[0][0], text)
     self.assertEqual(exceptionText, str(errors[0][1].exception), text)
+    self.assertEqual(at, errors[0][0], text)
+    self.assertEqual(1, len(errors), text)
 
   def assertHasRecorded(self, observer, messages, text):
     errors = [x for x in observer.messages if x[1].kind == Notification.KIND_ERROR]

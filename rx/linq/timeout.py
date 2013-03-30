@@ -33,7 +33,7 @@ class TimeoutAbsolute(Producer):
 
       timer = self.parent.scheduler.scheduleWithAbsolute(self.parent.dueTime, self.timeout)
 
-      original.disposable = self.parent.soruce.subscribeSafe(self)
+      original.disposable = self.parent.source.subscribeSafe(self)
 
       return CompositeDisposable(self.subscription, timer)
 
@@ -105,7 +105,7 @@ class TimeoutRelative(Producer):
 
       self.createTimer()
 
-      original.disposable = self.parent.soruce.subscribeSafe(self)
+      original.disposable = self.parent.source.subscribeSafe(self)
 
       return CompositeDisposable(self.subscription, self.timer)
 
@@ -195,7 +195,7 @@ class TimeoutObservable(Producer):
 
       self.setTimer(self.parent.firstTimeout)
 
-      original.disposable = self.parent.soruce.subscribeSafe(self)
+      original.disposable = self.parent.source.subscribeSafe(self)
 
       return CompositeDisposable(self.subscription, self.timer)
 
