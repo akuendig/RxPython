@@ -41,11 +41,9 @@ def publishIndividual(self, selector, initialValue=None):
   assert callable(selector)
 
   if initialValue == None:
-    def sub(): return Subject()
-    return self.multicastIndividual(sub, selector)
+    return self.multicastIndividual(lambda: Subject(), selector)
   else:
-    def sub(): return BehaviorSubject(initialValue)
-    return self.multicastIndividual(sub, selector)
+    return self.multicastIndividual(lambda: BehaviorSubject(initialValue), selector)
 Observable.publishIndividual = publishIndividual
 
 def publishLast(self, selector=None):
@@ -56,12 +54,11 @@ def publishLast(self, selector=None):
   else:
     assert callable(selector)
 
-    def sub(): return AsyncSubject()
-    return self.multicastIndividual(sub, selector)
+    return self.multicastIndividual(lambda: AsyncSubject(), selector)
 Observable.publishLast = publishLast
 
 def refCount(self):
-  assert isinstance(self, Observable)
+  assert isinstance(self, ConnectableObservable)
 
   return RefCount(self)
 Observable.refCount = refCount
@@ -75,6 +72,5 @@ def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, sche
   else:
     assert callable(selector)
 
-    def sub(): return ReplaySubject(bufferSize, window, scheduler)
-    return self.multicastIndividual(sub, selector)
+    return self.multicastIndividual(lambda: ReplaySubject(bufferSize, window, scheduler), selector)
 Observable.replay = replay

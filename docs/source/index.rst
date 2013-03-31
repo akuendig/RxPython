@@ -10,10 +10,11 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-   :numbered:
 
    rx/disposable.rst
+   rx/internal.rst
    rx/notification.rst
+   rx/observable.rst
    rx/observer.rst
    rx/scheduler.rst
    rx/subject.rst

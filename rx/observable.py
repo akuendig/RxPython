@@ -13,10 +13,6 @@ from threading import RLock
 class Observable(object):
   """Provides all extension methods to Observable"""
 
-  @staticmethod
-  def create(subscribe):
-    return AnonymousObservable(subscribe)
-
   def subscribe(self, observerOrOnNext=noop, onError=noop, onComplete=noop):
     observer = observerOrOnNext
 
@@ -89,7 +85,7 @@ class AnonymousObservable(ObservableBase):
       return d
 
 
-class ConnectableObservable(Observable):
+class ConnectableObservable(object):
   """Represents an observable wrapper that can be connected
   and disconnected from its underlying observable sequence."""
   def __init__(self, source, subject):

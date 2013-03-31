@@ -55,15 +55,15 @@ on.
 
 .. class:: AsyncSubject
 
-	An AsyncSubject does remember the value from its first onNext call.
-	Subscribers get either this value or wait for the value to arrive if
-	there has not happened an onNext call.
+	An AsyncSubject does remember the value from its last onNext call.
+	Subscribers get either this value or wait for the onCompleted call
+	if it has not happend.
 
-	If onError gets called, the subject stops waiting for a value and
+	If onError gets called, the subject stops waiting for the onCompleted and
 	instead propagates the error to all current and future observers.
 
-	If onCompleted gets called, the subject stops waiting for a value and
-	instead propagates onCompleted() to all current and future observers.
+	If onCompleted gets called, the subject stops waiting for the onCompleted and
+	calls onNext(lastValue) on all current and future observers.
 
 
 .. class:: BehaviorSubject(initialValue)

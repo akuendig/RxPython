@@ -19,7 +19,7 @@ from .sum import Sum
 from .toDictionary import ToDictionary
 from .toList import ToList
 
-from rx.internal import defaultComparer, defaultCompareTo, identity
+from rx.internal import defaultEquals, defaultCompareTo, identity
 from rx.observable import Observable
 
 def truePredicate(c): return True
@@ -61,7 +61,7 @@ def average(self, selector=identity):
     return Average(Select(self, selector))
 Observable.average = average
 
-def contains(self, value, equals=defaultComparer):
+def contains(self, value, equals=defaultEquals):
   assert isinstance(self, Observable)
   assert callable(equals)
 
@@ -151,12 +151,12 @@ def minBy(self, keySelector, compareTo=defaultCompareTo):
   return MinBy(self, keySelector, compareTo)
 Observable.minBy = minBy
 
-def sequenceEqual(first, second, compareTo=defaultComparer):
+def sequenceEqual(first, second, equals=defaultEquals):
   assert isinstance(first, Observable)
   assert isinstance(second, Observable)
-  assert callable(compareTo)
+  assert callable(equals)
 
-  return SequenceEqual(first, second, compareTo)
+  return SequenceEqual(first, second, equals)
 Observable.sequenceEqual = sequenceEqual
 
 def singleAsync(self, predicate=truePredicate):

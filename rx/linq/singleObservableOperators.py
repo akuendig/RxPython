@@ -12,7 +12,7 @@ from .takeLast import TakeLastCount, TakeLastTime
 from .takeLastBuffer import TakeLastBufferCount, TakeLastBufferTime
 from .window import Window
 
-from rx.internal import defaultComparer, identity, noop
+from rx.internal import defaultEquals, identity, noop
 from rx.observable import Observable
 from rx.scheduler import Scheduler
 
@@ -50,7 +50,7 @@ def dematerialize(self):
     return Dematerialize(self)
 Observable.dematerialize = dematerialize
 
-def distinctUntilChanged(self, keySelector=identity, equals=defaultComparer):
+def distinctUntilChanged(self, keySelector=identity, equals=defaultEquals):
   assert isinstance(self, Observable)
   assert callable(keySelector)
   assert callable(equals)
