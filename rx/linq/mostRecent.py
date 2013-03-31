@@ -4,17 +4,18 @@ import rx.linq.sink
 
 
 class MostRecent(PushToPullAdapter):
-  def __init__(self, source):
+  def __init__(self, source, initialValue):
     super(MostRecent, self).__init__(source)
+    self.initialValue = initialValue
 
   def run(self, subscription):
-    return self.Sink(subscription)
+    return self.Sink(self.initialValue, subscription)
 
   class Sink(rx.linq.sink.PushToPullSink):
-    def __init__(self, subscription):
+    def __init__(self, initialValue, subscription):
       super(MostRecent.Sink, self).__init__(subscription)
-      self.kind = None
-      self.value = None
+      self.kind = Notification.KIND_NEXT
+      self.value = initialValue
       self.error = None
 
     def onNext(self, value):

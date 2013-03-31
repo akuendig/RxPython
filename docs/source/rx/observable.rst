@@ -36,8 +36,7 @@ whole library working. Further optimisations can be made later.
 
 		If no observer is provided but instead any of the methods ``onNext``,
 		``onError``, or ``onCompleted`` an anonymous
-		:class:`Observer <rx.observer.Observer>`
-		will be created.
+		:class:`Observer <rx.observer.Observer>` will be created.
 
 		Subscribes the observer for the sequence.
 
@@ -45,7 +44,7 @@ whole library working. Further optimisations can be made later.
 .. class:: AnonymouseObservable(subscribe)
 
 	Represents an :class:`Observable` that calls the provided subscribe
-	function every time an observer subscribes.
+	function every time an :class:`Observer <rx.observer.Observer> subscribes.
 
 	The observer will be passed as parameter to the subscribe function.
 
@@ -282,6 +281,98 @@ Blocking
 
 		Returns an iterable whos next value is the current accumulator which
 		then gets replaced by ``getNowCollector(accumulator)``.
+
+	.. method:: first([predicate=None])
+
+		Returns the first value in the sequence or raises an Exception
+		if the sequence is empty.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: firstOrDefault([predicate=None, default=None])
+
+		Returns the first value in the sequence or ``default``.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: forEach(onNext)
+
+		Calls ``onNext(value)`` for every value in the sequence. Blocks until
+		the sequence ends.
+
+	.. method:: forEachEnumerate(onNext)
+
+		Calls ``onNext(value, index)`` for every value in the sequence. Blocks until
+		the sequence ends.
+
+	.. method:: getIterator()
+			  __iter__()
+
+		Returns an iterator that yields all values of the sequence.
+
+	.. method:: last([predicate=None])
+
+		Returns the last value in the sequence or raises an Exception
+		if the sequence is empty.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: lastOrDefault([predicate=None, default=None])
+
+		Returns the last value in the sequence or ``default``.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: latest()
+
+		Returns an iterator that blocks for the next values but in
+		contrast to :meth:`getIterator` also does not buffer values.
+
+		This means that the iterator returns the value that arrived
+		latest but it will not return a value twice.
+
+	.. method:: mostRecent(initialValue)
+
+		Returns an iterator that returns values even if no new values
+		have arrived. It is a sampling iterator.
+
+		This means that the iterator can yield duplicates.
+
+	.. method:: next()
+
+		Returns an iterator that blocks until the next value arrives.
+
+		If values arrive before the iterator moves to the next value,
+		they will be dropped. :meth:`next` only starts waiting for the
+		next value after the iterator requested for it.
+
+	.. method:: single([predicate=None])
+
+		Returns the last value in the sequence or raises an Exception
+		if the sequence is empty. If more than one value arrive, an
+		Exception is raised.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: singleOrDefault([predicate=None, default=None])
+
+		Returns the single value in the sequence or ``default``.
+		If more than one value arrive, an Exception is raised.
+
+		If ``predicate != None``, the sequence is filtered for values
+		where ``predicate(value) == True``.
+
+	.. method:: wait()
+
+		Is a synonym for :meth:`last`
+
+
+
 
 
 

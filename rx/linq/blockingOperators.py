@@ -184,10 +184,10 @@ def latest(self):
   return Latest(self)
 Observable.latest = latest
 
-def mostRecent(self):
+def mostRecent(self, initialValue):
   assert isinstance(self, Observable)
 
-  return MostRecent(self)
+  return MostRecent(self, initialValue)
 Observable.mostRecent = mostRecent
 
 def next(self):
