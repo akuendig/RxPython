@@ -43,12 +43,12 @@ whole library working. Further optimisations can be made later.
 
 .. class:: AnonymouseObservable(subscribe)
 
-	Represents an :class:`Observable` that calls the provided subscribe
-	function every time an :class:`Observer <rx.observer.Observer> subscribes.
+	Represents an :class:`Observable` that calls ``subscribe``
+	every time an :class:`Observer <rx.observer.Observer>` subscribes.
 
-	The observer will be passed as parameter to the subscribe function.
+	The observer will be passed as parameter to ``subscribe``.
 
-	The subscribe funtion should return a
+	``subscribe`` should return a
 	:class:`Disposable <rx.disposable.Disposable>`.
 
 
@@ -372,8 +372,129 @@ Blocking
 		Is a synonym for :meth:`last`
 
 
+Concurrent
+----------
+
+.. class:: Observable
+
+	.. method:: subscribeOn(scheduler)
+
+		Whenever an :class:`Observer <rx.observer.Observer>` wants to
+		subscribe, the actual subscription is scheduled immediatly on
+		``scheduler``.
+
+	.. method:: observeOn(scheduler)
+
+		Whenever an onNext, onError, or onCompleted event happens, the
+		invocation of the corresponding function on all observers is
+		scheduled on ``scheduler``.
+
+	.. method:: synchronize([gate=None])
+
+		Whenever an onNext, onError, or onCompleted event happens, the
+		invocation of the corresponding function on all observers is
+		synchronized with ``gate``.
+
+		If ``gate == None`` then ``gate = RLock()``.
+
+		The synchronisation guarantees that one observer only sees one
+		onNext, onError, or onComplete at the same time.
 
 
+Creation
+--------
+
+.. class:: Observable
+
+	.. staticmethod:: create(subscribe)
+
+		Returns an :class:`Observable` that calls ``subscribe``
+		every time an :class:`Observer <rx.observer.Observer>` subscribes.
+
+		The observer will be passed as parameter to ``subscribe``.
+
+		``subscribe`` should return a
+		:class:`Disposable <rx.disposable.Disposable>`.
+
+	.. staticmethod:: defer(observableFactory)
+
+		Returns an :class:`Observable` that subscribes observers
+		to the :class:`Observable` returned by ``observableFactory``.
+
+		It calls ``observableFactory`` every time a subscription happens.
+
+	.. staticmethod:: empty()
+
+		Returns an :class:`Observable` that instantly completes
+		on every subscription.
+
+	.. staticmethod:: generate(initialState, condition, iterate, resultSelector[, scheduler=Scheduler.iteration])
+
+		Returns an :class:`Observable` who represents the following generator::
+
+			currentState = initialState
+
+			while condition(currentState):
+				yield resultSelector(currentState)
+				currentState = iterate(currentState)
+
+		The values are scheduled on ``scheduler``.
+
+	.. staticmethod:: never()
+
+		Returns an :class:`Observable` that has no values and never completes,
+
+	.. staticmethod:: range(start, count[, scheduler=Scheduler.iteration])
+
+		Returns an :class:`Observable` that yields ``count`` values beginning
+		from ``start``.
+
+		The values are scheduled on ``scheduler``.
+
+	.. staticmethod:: repeatValue(value[, count=None, scheduler=Scheduler.iteration])
+
+		Returns an :class:`Observable` that yields ``value`` ``count`` times and
+		then completes.
+
+		If ``count == None`` ``value`` gets yielded indefinetly.
+
+		The values are scheduled on ``scheduler``.
+
+	.. staticmethod:: returnValue(value[, scheduler=Scheduler.constantTimeOperations])
+
+		Returns an :class:`Observable` that yields ``value`` and then completes.
+
+		The value is scheduled on ``scheduler``.
+
+	.. staticmethod:: throw(exception[, scheduler=Scheduler.constantTimeOperations])
+
+		Returns an :class:`Observable` that yields exception as onError.
+
+		The exception is scheduled on ``scheduler``.
+
+	.. staticmethod:: using(resourceFactory, observableFactory)
+
+		Returns an :class:`Observable` that whenever an observer subscribes,
+		calls ``resourceFactory()`` then ``observableFactory(resource)`` and
+		subscribes the observer to the :class:`Observable` returned by
+		``observableFactory``
+
+		The resource returned by ``resourceFactory`` must have a ``dispose``
+		method that is invoked once the :class:`Observable` returned by
+		``observableFactory`` has completed.
+
+	.. staticmethod:: fromIterable(iterable[, scheduler=Scheduler.default])
+
+		Returns an :class:`Observable` that yields all values from ``iterable``
+		on ``scheduler``.
+
+	.. staticmethod:: fromEvent(addHandler, removeHandler[, scheduler=Scheduler.default])
+
+		Returns an :class:`Observable` that calls ``addHandler(onNext)``
+		when the first :class:`Observer <rx.observer.Observer>` subscribes.
+		Further subscriber share the same underlying handler.
+
+		When the last subscriber unsubscribes, ``removeHandler(onNext)`` is called.
 
 
 
