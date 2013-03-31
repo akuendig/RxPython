@@ -1,5 +1,6 @@
 class Notification(object):
   """Represents a notification to an observer."""
+
   KIND_NEXT = 0
   KIND_ERROR = 1
   KIND_COMPLETED = 2
@@ -16,6 +17,11 @@ class Notification(object):
     )
 
   def accept(self, observerOrOnNext, onError=None, onCompleted=None):
+    """Accepts an observer or the methods onNext, onError, onCompleted and invokes
+    either onNext, onError, onCompleted depending on which type of :class:`Notification`
+    it is. This is an abstract method that is implemented by
+    :class:`OnNextNotification`, :class:`OnErrorNotification`,
+    and :class:`OnCompletedNotification`."""
     # if observerOrOnNext == None or hasattr(observerOrOnNext, '__call__'):
     #   observer = Observer.create(observerOrOnNext, onError, onComplete)
     raise NotImplementedError()

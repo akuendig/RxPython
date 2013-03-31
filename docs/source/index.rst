@@ -1,0 +1,28 @@
+.. RxPython documentation master file, created by
+   sphinx-quickstart on Sat Mar 30 19:54:02 2013.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to RxPython's documentation!
+====================================
+
+Contents:
+
+.. toctree::
+   :maxdepth: 2
+   :numbered:
+
+   rx/disposable.rst
+   rx/notification.rst
+   rx/observer.rst
+   rx/scheduler.rst
+   rx/subject.rst
+
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+

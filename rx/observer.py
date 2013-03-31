@@ -6,15 +6,22 @@ from queue import Empty, Queue
 from threading import RLock, Semaphore
 
 class Observer(Disposable):
-  """Represents thi IObserver Interface.
+  """Represents the IObserver Interface.
   Has some static helper methods attached"""
 
   @staticmethod
-  def create(onNext=noop, onError=defaultError, onCompleted=noop):
+  def create(onNext=None, onError=None, onCompleted=None):
+    if onNext == None:
+      onNext = noop
+    if onError == None:
+      onError = defaultError
+    if onCompleted == None:
+      onCompleted = noop
+
     return AnonymousObserver(onNext, onError, onCompleted)
 
   @staticmethod
-  def synchronize(observer, lock = None):
+  def synchronize(observer, lock=None):
     if lock == None:
       lock = RLock()
 

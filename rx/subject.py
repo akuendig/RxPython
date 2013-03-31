@@ -7,6 +7,7 @@ from rx.scheduler import currentThreadScheduler
 import sys
 from threading import RLock
 
+
 class Subject(Observable, Observer):
   def __init__(self):
     super(Subject, self).__init__()

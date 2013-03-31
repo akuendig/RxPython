@@ -11,7 +11,8 @@ from time import sleep
 
 class Scheduler(object):
   """Provides a set of static properties to access commonly
-  used Schedulers."""
+  used Schedulers and implements all the scheduling methods that
+  then use the overrides of the implementation."""
 
   @staticmethod
   def invokeAction(scheduler, action):
@@ -228,12 +229,11 @@ class CatchScheduler(Scheduler):
 
           return None
 
-    d.setDisposable(
-      self._scheduler.schedulePeriodicWithState(
+    d.disposable = self._scheduler.schedulePeriodicWithState(
         state,
         period,
         scheduled
-    ))
+      )
 
     return d
 
@@ -683,16 +683,16 @@ class ScheduledItem(object):
 
 
 immediateScheduler = ImmediateScheduler()
-Scheduler.immediate = immediateScheduler
+Scheduler.immediate = property(lambda: immediateScheduler)
 
 currentThreadScheduler = CurrentThreadScheduler()
-Scheduler.currentThread = currentThreadScheduler
+Scheduler.currentThread = property(lambda: currentThreadScheduler)
 
 defaultScheduler = DefaultScheduler()
-Scheduler.default = defaultScheduler
+Scheduler.default = property(lambda: defaultScheduler)
 
-Scheduler.constantTimeOperations = immediateScheduler
-Scheduler.tailRecursion = immediateScheduler
-Scheduler.iteration = currentThreadScheduler
-Scheduler.timeBasedOperation = defaultScheduler
-Scheduler.asyncConversions = defaultScheduler
+Scheduler.constantTimeOperations = property(lambda: immediateScheduler)
+Scheduler.tailRecursion = property(lambda: immediateScheduler)
+Scheduler.iteration = property(lambda: currentThreadScheduler)
+Scheduler.timeBasedOperation = property(lambda: defaultScheduler)
+Scheduler.asyncConversions = property(lambda: defaultScheduler)

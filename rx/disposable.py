@@ -25,6 +25,8 @@ disposableEmpty = Disposable()
 
 
 class Cancelable(Disposable):
+  """Inherits :class:`Disposable` and adds the :attr:`isDisposed` attribute."""
+
   def __init__(self):
     super(Cancelable, self).__init__()
     self._isDisposed = Atomic(False)
@@ -34,7 +36,6 @@ class Cancelable(Disposable):
 
   @property
   def isDisposed(self):
-    """The isDisposed property."""
     return self._isDisposed.value
 
   @property
@@ -43,6 +44,9 @@ class Cancelable(Disposable):
 
 
 class AnonymouseDisposable(Cancelable):
+  """Represents a disposable resource that wraps an action that is
+  called on the first use of :func:`dispose`."""
+
   def __init__(self, action):
     super(AnonymouseDisposable, self).__init__()
     self.action = action
@@ -53,6 +57,9 @@ class AnonymouseDisposable(Cancelable):
 
 
 class BooleanDisposable(Cancelable):
+  """Represents a disposable resource that
+  can be checked if it already has been disposed"""
+
   def __init__(self):
     super(BooleanDisposable, self).__init__()
 
@@ -64,54 +71,54 @@ class CompositeDisposable(Cancelable):
   """Represents a group of disposable resources that
   are disposed together"""
 
-  def __init__(self, first = None, *rest):
+  def __init__(self, *disposables):
     super(CompositeDisposable, self).__init__()
 
-    if first == None:
+    if len(disposables) == 0:
       self.disposables = []
-    elif isinstance(first, list) or isinstance(first, tuple):
-      self.disposables = list(first)
+    elif len(disposables) == 1 and not isinstance(disposables[0], Disposable):
+      self.disposables = list(disposables[0])
     else:
-      self.disposables = [first] + list(rest)
+      self.disposables = disposables
 
     self.length = len(self.disposables)
 
-  def add(self, item):
+  def add(self, disposable):
     shouldDispose = False
 
     with self.lock:
       shouldDispose = self.isDisposed
 
       if not shouldDispose:
-        self.disposables.append(item)
+        self.disposables.append(disposable)
         self.length += 1
 
     if shouldDispose:
-      item.dispose()
+      disposable.dispose()
 
-  def contains(self, item):
+  def contains(self, disposable):
     with self.lock:
-      return self.disposables.index(item) >= 0
+      return self.disposables.index(disposable) >= 0
 
-  def remove(self, item):
+  def remove(self, disposable):
     shouldDispose = False
 
     with self.lock:
       if self.isDisposed:
         return False
 
-      index = self.disposables.index(item)
+      index = self.disposables.index(disposable)
 
       if index < 0:
         return False
 
       shouldDispose = True
 
-      self.disposables.remove(item)
+      self.disposables.remove(disposable)
       self.length -= 1
 
     if shouldDispose:
-      item.dispose()
+      disposable.dispose()
 
     return shouldDispose
 
