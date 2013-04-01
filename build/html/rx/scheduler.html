@@ -1,0 +1,320 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>scheduler &mdash; RxPython 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="RxPython 0.1 documentation" href="../index.html" />
+    <link rel="next" title="subject" href="subject.html" />
+    <link rel="prev" title="observer" href="observer.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="subject.html" title="subject"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="observer.html" title="observer"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">RxPython 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-rx.scheduler">
+<span id="scheduler"></span><h1><tt class="xref py py-mod docutils literal"><span class="pre">scheduler</span></tt><a class="headerlink" href="#module-rx.scheduler" title="Permalink to this headline">¶</a></h1>
+<p>Schedulers are the main source of concurrency in RxPython. Every action that happens
+either periodically, concurrently, or is timed for later execution should be scheduled
+by the correct <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> implementation. Some Schedulers as the
+<a class="reference internal" href="#rx.scheduler.Scheduler.currentThread" title="rx.scheduler.Scheduler.currentThread"><tt class="xref py py-attr docutils literal"><span class="pre">Scheduler.currentThread</span></tt></a> allow for cooperative multitasking, others like the
+<a class="reference internal" href="#rx.scheduler.Scheduler.default" title="rx.scheduler.Scheduler.default"><tt class="xref py py-attr docutils literal"><span class="pre">Scheduler.default</span></tt></a> are used for scheduling on different threads and the
+ThreadPool.</p>
+<p>Instances for Schedulers should NEVER be created manually but instead the static
+properties on the <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> class should be used to get an instance.</p>
+<dl class="class">
+<dt id="rx.scheduler.Scheduler">
+<em class="property">class </em><tt class="descclassname">rx.scheduler.</tt><tt class="descname">Scheduler</tt><a class="headerlink" href="#rx.scheduler.Scheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provides a set of static properties to access commonly
+used Schedulers and implements all the scheduling methods that
+then use the overrides of the implementation.</p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.now">
+<tt class="descname">now</tt><big>(</big><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.now" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Returns the current time.</p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.catchException">
+<tt class="descname">catchException</tt><big>(</big><em>handler</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.catchException" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> that invokes the handler function
+if an exception gets raised. If the handler returns False the
+Exception is reraised.</p>
+</dd></dl>
+
+<p><strong>Long running scheduling</strong></p>
+<dl class="attribute">
+<dt id="rx.scheduler.Scheduler.isLongRunning">
+<tt class="descname">isLongRunning</tt><a class="headerlink" href="#rx.scheduler.Scheduler.isLongRunning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns True if the scheduler implementation supports long running
+scheduling via <a class="reference internal" href="#rx.scheduler.Scheduler.scheduleLongRunning" title="rx.scheduler.Scheduler.scheduleLongRunning"><tt class="xref py py-meth docutils literal"><span class="pre">scheduleLongRunning()</span></tt></a> and
+<a class="reference internal" href="#rx.scheduler.Scheduler.scheduleLongRunningWithState" title="rx.scheduler.Scheduler.scheduleLongRunningWithState"><tt class="xref py py-meth docutils literal"><span class="pre">scheduleLongRunningWithState()</span></tt></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleLongRunning">
+<tt class="descname">scheduleLongRunning</tt><big>(</big><em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleLongRunning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> as long running which in the current implementation
+runs the action on a separate Thread. The action gets as parameter its
+own <a class="reference internal" href="disposable.html#rx.disposable.Cancelable" title="rx.disposable.Cancelable"><tt class="xref py py-class docutils literal"><span class="pre">rx.disposable.Cancelable</span></tt></a> on which it can check, if it got
+disposed.</p>
+<p>Actions scheduled as long running are guaranteed to run even if the got
+canceled befor running.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleLongRunningWithState">
+<tt class="descname">scheduleLongRunningWithState</tt><big>(</big><em>state</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleLongRunningWithState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> as long running which in the current implementation
+runs the action on a separate Thread. The action gets as parameter
+<tt class="docutils literal"><span class="pre">state</span></tt> and its own <a class="reference internal" href="disposable.html#rx.disposable.Cancelable" title="rx.disposable.Cancelable"><tt class="xref py py-class docutils literal"><span class="pre">rx.disposable.Cancelable</span></tt></a> on which it can check,
+if it got disposed.</p>
+<p>Actions scheduled as long running are guaranteed to run even if the got
+canceled befor running.</p>
+</dd></dl>
+
+<p><strong>Periodic Scheduling</strong></p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.schedulePeriodicWithState">
+<tt class="descname">schedulePeriodicWithState</tt><big>(</big><em>state</em>, <em>period</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.schedulePeriodicWithState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for periodic execution every <tt class="docutils literal"><span class="pre">period</span></tt>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descname">schedulePeriodicWithState</tt><big>(</big><em>state</em>, <em>period</em>, <em>action</em><big>)</big></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for periodic execution every <tt class="docutils literal"><span class="pre">period</span></tt>. The
+action gets as parameter <tt class="docutils literal"><span class="pre">state</span></tt> and should return the new state
+that is used on the next periodic invocation.</p>
+</dd></dl>
+
+<p><strong>Immediate Scheduling</strong></p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.schedule">
+<tt class="descname">schedule</tt><big>(</big><em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.schedule" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for immediate execution. <tt class="docutils literal"><span class="pre">action</span></tt> receives
+as parameter the scheduler.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleWithState">
+<tt class="descname">scheduleWithState</tt><big>(</big><em>state</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleWithState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for immediate execution. <tt class="docutils literal"><span class="pre">action</span></tt> receives
+as parameter the scheduler and <tt class="docutils literal"><span class="pre">state</span></tt>.</p>
+</dd></dl>
+
+<p><strong>Relative time scheduling</strong></p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleWithRelative">
+<tt class="descname">scheduleWithRelative</tt><big>(</big><em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleWithRelative" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for execution after <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the scheduler.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleWithRelativeAndState">
+<tt class="descname">scheduleWithRelativeAndState</tt><big>(</big><em>state</em>, <em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleWithRelativeAndState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for execution after <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the scheduler and <tt class="docutils literal"><span class="pre">state</span></tt>.</p>
+</dd></dl>
+
+<p><strong>Absolute time scheduling</strong></p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleWithAbsolute">
+<tt class="descname">scheduleWithAbsolute</tt><big>(</big><em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleWithAbsolute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for execution at <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the scheduler.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleWithAbsoluteAndState">
+<tt class="descname">scheduleWithAbsoluteAndState</tt><big>(</big><em>state</em>, <em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleWithAbsoluteAndState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for execution at <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the scheduler and <tt class="docutils literal"><span class="pre">state</span></tt>.</p>
+</dd></dl>
+
+<p><strong>Recursive scheduling</strong></p>
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursive">
+<tt class="descname">scheduleRecursive</tt><big>(</big><em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> immediately for recursive execution.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the continuation function to
+schedule itself recursively.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursiveWithState">
+<tt class="descname">scheduleRecursiveWithState</tt><big>(</big><em>state</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursiveWithState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> immediately for recursive execution.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the state and the continuation function
+to schedule itself recursively. The parameter given to the
+continuation function is the state for the next invocation of
+<tt class="docutils literal"><span class="pre">action</span></tt>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursiveWithRelative">
+<tt class="descname">scheduleRecursiveWithRelative</tt><big>(</big><em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursiveWithRelative" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for recursive execution after <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the continuation function to
+schedule itself recursively.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursiveWithRelativeAndState">
+<tt class="descname">scheduleRecursiveWithRelativeAndState</tt><big>(</big><em>state</em>, <em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursiveWithRelativeAndState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for recursive execution after <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the state and the continuation function
+to schedule itself recursively. The parameter given to the
+continuation function is the state for the next invocation of
+<tt class="docutils literal"><span class="pre">action</span></tt>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursiveWithAbsolute">
+<tt class="descname">scheduleRecursiveWithAbsolute</tt><big>(</big><em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursiveWithAbsolute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for recursive execution at <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the continuation function to
+schedule itself recursively.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rx.scheduler.Scheduler.scheduleRecursiveWithAbsoluteAndState">
+<tt class="descname">scheduleRecursiveWithAbsoluteAndState</tt><big>(</big><em>state</em>, <em>dueTime</em>, <em>action</em><big>)</big><a class="headerlink" href="#rx.scheduler.Scheduler.scheduleRecursiveWithAbsoluteAndState" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules <tt class="docutils literal"><span class="pre">action</span></tt> for recursive execution at <tt class="docutils literal"><span class="pre">dueTime</span></tt>.
+<tt class="docutils literal"><span class="pre">action</span></tt> receives as parameter the state and the continuation function
+to schedule itself recursively. The parameter given to the
+continuation function is the state for the next invocation of
+<tt class="docutils literal"><span class="pre">action</span></tt>.</p>
+</dd></dl>
+
+<p><strong>Static attributes of scheduler instances</strong></p>
+<dl class="attribute">
+<dt id="rx.scheduler.Scheduler.immediate">
+<tt class="descname">immediate</tt><a class="headerlink" href="#rx.scheduler.Scheduler.immediate" title="Permalink to this definition">¶</a></dt>
+<dd><p>A <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> that runs all scheduled actions immediately.
+It does not support long running and periodic scheduling.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="rx.scheduler.Scheduler.currentThread">
+<tt class="descname">currentThread</tt><a class="headerlink" href="#rx.scheduler.Scheduler.currentThread" title="Permalink to this definition">¶</a></dt>
+<dd><p>A <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> that keeps a queue of all scheduled actions.
+It does not support long running and periodic scheduling but
+allows for cooperative scheduling which means that for example a
+generator and a consumer could be scheduled at the same time and
+both would run concurrently.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="rx.scheduler.Scheduler.default">
+<tt class="descname">default</tt><a class="headerlink" href="#rx.scheduler.Scheduler.default" title="Permalink to this definition">¶</a></dt>
+<dd><p>A <a class="reference internal" href="#rx.scheduler.Scheduler" title="rx.scheduler.Scheduler"><tt class="xref py py-class docutils literal"><span class="pre">Scheduler</span></tt></a> that supports all scheduling operations.
+It is the default scheduler and should be used whenever no particular
+reason exists to use an other scheduler implementation.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="observer.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">observer</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="subject.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">subject</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/rx/scheduler.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="subject.html" title="subject"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="observer.html" title="observer"
+             >previous</a> |</li>
+        <li><a href="../index.html">RxPython 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Adrian Kündig.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

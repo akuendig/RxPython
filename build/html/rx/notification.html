@@ -1,0 +1,173 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>notification &mdash; RxPython 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="RxPython 0.1 documentation" href="../index.html" />
+    <link rel="next" title="observable" href="observable.html" />
+    <link rel="prev" title="internal" href="internal.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="observable.html" title="observable"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="internal.html" title="internal"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">RxPython 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-rx.notification">
+<span id="notification"></span><h1><tt class="xref py py-mod docutils literal"><span class="pre">notification</span></tt><a class="headerlink" href="#module-rx.notification" title="Permalink to this headline">¶</a></h1>
+<p>Notifications are used to record which events have happend. They are
+most useful for testing where one wants to schedule some notifications
+at a specific time and test if the operator reacted as expected.</p>
+<dl class="class">
+<dt id="rx.notification.Notification">
+<em class="property">class </em><tt class="descclassname">rx.notification.</tt><tt class="descname">Notification</tt><a class="headerlink" href="#rx.notification.Notification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents a notification to an observer.</p>
+<dl class="staticmethod">
+<dt id="rx.notification.Notification.createOnNext">
+<em class="property">static </em><tt class="descname">createOnNext</tt><big>(</big><em>value</em><big>)</big><a class="headerlink" href="#rx.notification.Notification.createOnNext" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Creates an <a class="reference internal" href="#rx.notification.OnNextNotification" title="rx.notification.OnNextNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnNextNotification</span></tt></a> that yields <tt class="docutils literal"><span class="pre">value</span></tt>.</p>
+<dl class="staticmethod">
+<dt id="rx.notification.Notification.createOnError">
+<em class="property">static </em><tt class="descname">createOnError</tt><big>(</big><em>exception</em><big>)</big><a class="headerlink" href="#rx.notification.Notification.createOnError" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Creates an <a class="reference internal" href="#rx.notification.OnErrorNotification" title="rx.notification.OnErrorNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnErrorNotification</span></tt></a> that yields <tt class="docutils literal"><span class="pre">exception</span></tt>.</p>
+<dl class="staticmethod">
+<dt id="rx.notification.Notification.createOnCompleted">
+<em class="property">static </em><tt class="descname">createOnCompleted</tt><big>(</big><big>)</big><a class="headerlink" href="#rx.notification.Notification.createOnCompleted" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Creates an <a class="reference internal" href="#rx.notification.OnCompletedNotification" title="rx.notification.OnCompletedNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnCompletedNotification</span></tt></a>.</p>
+<dl class="method">
+<dt id="rx.notification.Notification.accept">
+<tt class="descname">accept</tt><big>(</big><em>observerOrOnNext</em>, <em>onError=None</em>, <em>onCompleted=None</em><big>)</big><a class="headerlink" href="#rx.notification.Notification.accept" title="Permalink to this definition">¶</a></dt>
+<dd><p>Accepts an observer or the methods onNext, onError, onCompleted and invokes
+either onNext, onError, onCompleted depending on which type of <a class="reference internal" href="#rx.notification.Notification" title="rx.notification.Notification"><tt class="xref py py-class docutils literal"><span class="pre">Notification</span></tt></a>
+it is. This is an abstract method that is implemented by
+<a class="reference internal" href="#rx.notification.OnNextNotification" title="rx.notification.OnNextNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnNextNotification</span></tt></a>, <a class="reference internal" href="#rx.notification.OnErrorNotification" title="rx.notification.OnErrorNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnErrorNotification</span></tt></a>,
+and <a class="reference internal" href="#rx.notification.OnCompletedNotification" title="rx.notification.OnCompletedNotification"><tt class="xref py py-class docutils literal"><span class="pre">OnCompletedNotification</span></tt></a>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="rx.notification.OnNextNotification">
+<em class="property">class </em><tt class="descclassname">rx.notification.</tt><tt class="descname">OnNextNotification</tt><big>(</big><em>value</em><big>)</big><a class="headerlink" href="#rx.notification.OnNextNotification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents an OnNextNotification notification to an observer.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="rx.notification.OnErrorNotification">
+<em class="property">class </em><tt class="descclassname">rx.notification.</tt><tt class="descname">OnErrorNotification</tt><big>(</big><em>exception</em><big>)</big><a class="headerlink" href="#rx.notification.OnErrorNotification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents an OnNextNotification notification to an observer.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="rx.notification.OnCompletedNotification">
+<em class="property">class </em><tt class="descclassname">rx.notification.</tt><tt class="descname">OnCompletedNotification</tt><a class="headerlink" href="#rx.notification.OnCompletedNotification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents an OnNextNotification notification to an observer.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="internal.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">internal</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="observable.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">observable</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/rx/notification.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="observable.html" title="observable"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="internal.html" title="internal"
+             >previous</a> |</li>
+        <li><a href="../index.html">RxPython 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Adrian Kündig.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
