@@ -85,7 +85,7 @@ class AnonymousObservable(ObservableBase):
       return d
 
 
-class ConnectableObservable(object):
+class ConnectableObservable(Observable):
   """Represents an observable wrapper that can be connected
   and disconnected from its underlying observable sequence."""
   def __init__(self, source, subject):

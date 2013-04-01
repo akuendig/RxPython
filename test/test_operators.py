@@ -503,6 +503,7 @@ class TestConcurrency(ReactiveTest):
 
       def scheduleLongRunning(self, action):
         state.loopScheduled = True
+        return Disposable.empty()
 
     o = Observable.fromIterable([3, 2, 1]).observeOn(Sched())
 

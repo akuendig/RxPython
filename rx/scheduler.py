@@ -9,7 +9,42 @@ from threading import Thread, Timer, RLock
 from time import sleep
 
 
-class Scheduler(object):
+class MetaScheduler(type):
+
+  @property
+  def currentThread(cls):
+    return currentThreadScheduler
+
+  @property
+  def immediate(cls):
+    return immediateScheduler
+
+  @property
+  def default(cls):
+    return defaultScheduler
+
+  @property
+  def constantTimeOperations(cls):
+    return immediateScheduler
+
+  @property
+  def tailRecursion(cls):
+    return immediateScheduler
+
+  @property
+  def iteration(cls):
+    return currentThreadScheduler
+
+  @property
+  def timeBasedOperation(cls):
+    return defaultScheduler
+
+  @property
+  def asyncConversions(cls):
+    return defaultScheduler
+
+
+class Scheduler(object, metaclass=MetaScheduler):
   """Provides a set of static properties to access commonly
   used Schedulers and implements all the scheduling methods that
   then use the overrides of the implementation."""
@@ -150,7 +185,7 @@ class Scheduler(object):
     raise NotImplementedError()
 
 
-class CatchWrapper:
+class CatchWrapper(object):
   def __init__(self, parent, action):
     self.parent = parent
     self.action = action
@@ -683,16 +718,6 @@ class ScheduledItem(object):
 
 
 immediateScheduler = ImmediateScheduler()
-Scheduler.immediate = property(lambda: immediateScheduler)
-
 currentThreadScheduler = CurrentThreadScheduler()
-Scheduler.currentThread = property(lambda: currentThreadScheduler)
-
 defaultScheduler = DefaultScheduler()
-Scheduler.default = property(lambda: defaultScheduler)
 
-Scheduler.constantTimeOperations = property(lambda: immediateScheduler)
-Scheduler.tailRecursion = property(lambda: immediateScheduler)
-Scheduler.iteration = property(lambda: currentThreadScheduler)
-Scheduler.timeBasedOperation = property(lambda: defaultScheduler)
-Scheduler.asyncConversions = property(lambda: defaultScheduler)

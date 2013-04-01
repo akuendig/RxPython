@@ -1,7 +1,7 @@
 from rx.concurrency import Atomic
 from collections import deque
 
-class Disposable:
+class Disposable(object):
   """Represents a disposable object"""
 
   def dispose(self):
@@ -77,9 +77,9 @@ class CompositeDisposable(Cancelable):
     if len(disposables) == 0:
       self.disposables = []
     elif len(disposables) == 1 and not isinstance(disposables[0], Disposable):
-      self.disposables = list(disposables[0])
+      self.disposables = [d for d in disposables[0] if d != None]
     else:
-      self.disposables = disposables
+      self.disposables = [d for d in disposables if d != None]
 
     self.length = len(self.disposables)
 

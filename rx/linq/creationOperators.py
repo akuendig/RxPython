@@ -89,7 +89,7 @@ def repeatValue(value, count=None, scheduler=Scheduler.iteration):
   return Repeat(value, count, scheduler)
 Observable.repeatValue = repeatValue
 
-def returnOp(value, scheduler = Scheduler.constantTimeOperations):
+def returnOp(value, scheduler=Scheduler.constantTimeOperations):
   assert isinstance(scheduler, Scheduler)
 
   return Return(value, scheduler)
