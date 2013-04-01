@@ -8,6 +8,8 @@ from rx.subject import Subject
 
 from test.reactive import OnNext, OnError, OnCompleted, TestScheduler, ReactiveTest
 
+import concurrent.futures
+
 class TestAggregation(ReactiveTest):
   def test_aggregate(self):
     sched, xs, messages = self.simpleHot(5, 5, 5, 5)
@@ -656,6 +658,20 @@ class TestCreation(ReactiveTest):
       "return should return value"
     )
 
+  def test_start(self):
+    sched = TestScheduler()
+
+    o = sched.start(
+      lambda: Observable.start(lambda: 5, sched)
+    )
+
+    self.assertHasValues(o, [
+        (200, 5),
+      ],
+      200,
+      "start should exectue action on scheduler and yield result"
+    )
+
   def test_throw(self):
     ex = Exception("Test Exception")
     sched = TestScheduler()
@@ -708,6 +724,23 @@ class TestCreation(ReactiveTest):
       state,
       200,
       "using should subscribe to the created observable"
+    )
+
+  def test_from_future(self):
+    sched = TestScheduler()
+    f = concurrent.futures.Future()
+
+    sched.scheduleAbsolute(230, lambda: f.set_result(5))
+
+    o = sched.start(
+      lambda: Observable.fromFuture(f)
+    )
+
+    self.assertHasSingleValue(
+      o,
+      5,
+      230,
+      "fromFuture should yield result value of future"
     )
 
   def test_from_iterable(self):

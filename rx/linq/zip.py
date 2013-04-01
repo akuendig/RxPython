@@ -7,8 +7,9 @@ from threading import RLock
 
 
 class Zip(Producer):
-  def __init__(self, sources):
+  def __init__(self, sources, resultSelector):
     self.sources = sources
+    self.resultSelector = resultSelector
 
   def run(self, observer, cancel, setSink):
     sink = self.Sink(self, observer, cancel)
@@ -57,8 +58,13 @@ class Zip(Producer):
         self.queues[index].append(value)
 
         if all([len(q) > 0 for q in self.queues]):
-          res = tuple(map(lambda q: q.popleft(), self.queues))
-          self.observer.onNext(res)
+          try:
+            res = self.parent.resultSelector(*map(lambda q: q.popleft(), self.queues))
+          except Exception as e:
+            self.observer.onError(e)
+            self.dispose()
+          else:
+            self.observer.onNext(res)
         elif all(d for i, d in enumerate(self.isDone) if i != index):
           self.observer.onCompleted()
           self.dispose()

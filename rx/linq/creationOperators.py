@@ -13,6 +13,7 @@ from .using import Using
 from rx.disposable import Disposable
 from rx.observable import AnonymousObservable, Observable
 from rx.scheduler import Scheduler
+from rx.subject import AsyncSubject
 
 import collections
 
@@ -95,6 +96,23 @@ def returnOp(value, scheduler=Scheduler.constantTimeOperations):
   return Return(value, scheduler)
 Observable.returnValue = returnOp
 
+def start(action, scheduler=Scheduler.default):
+  assert isinstance(scheduler, Scheduler)
+
+  subject = AsyncSubject()
+
+  def scheduled():
+    try:
+      subject.onNext(action())
+      subject.onCompleted()
+    except Exception, e:
+      subject.onError(e)
+
+    return Disposable.empty()
+
+  return subject.asObservable()
+Observable.start = start
+
 def throw(exception, scheduler=Scheduler.constantTimeOperations):
   assert isinstance(scheduler, Scheduler)
 
@@ -112,12 +130,24 @@ Observable.using = using
 #      From***     #
 ####################
 
-def fromIterable(iterable, scheduler=Scheduler.default):
-  assert isinstance(iterable, collections.Iterable)
-  assert isinstance(scheduler, Scheduler)
+def fromFuture(future):
+  subject = AsyncSubject()
 
-  return ToObservable(iterable, scheduler)
-Observable.fromIterable = fromIterable
+  def callback(f):
+    if f.cancelled():
+      subject.onError(Exception("Future was cancelled"))
+    elif f.exception() != None:
+      subject.onError(f.exception())
+    else:
+      subject.onNext(f.result())
+      subject.onCompleted()
+
+  if future.done():
+    callback(future)
+  else:
+    future.add_done_callback(callback)
+
+  return subject
 
 def fromEvent(addHandler, removeHandler, scheduler=Scheduler.default):
   assert callable(addHandler)
@@ -126,3 +156,10 @@ def fromEvent(addHandler, removeHandler, scheduler=Scheduler.default):
 
   return FromEvent(addHandler, removeHandler, scheduler)
 Observable.fromEvent = fromEvent
+
+def fromIterable(iterable, scheduler=Scheduler.default):
+  assert isinstance(iterable, collections.Iterable)
+  assert isinstance(scheduler, Scheduler)
+
+  return ToObservable(iterable, scheduler)
+Observable.fromIterable = fromIterable

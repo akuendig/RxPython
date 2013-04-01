@@ -73,7 +73,7 @@ whole library working. Further optimisations can be made later.
 
 	.. attribute:: key
 
-		The key of this Observable sequence.
+		The key of this :class:`Observable`.
 
 
 Aggregation
@@ -88,11 +88,11 @@ Aggregation
 
 	.. method:: all(predicate)
 
-		Yields True if ``predicate`` returns True for all values.
+		Yields True if ``predicate`` returns ``True`` for all values.
 
 	.. method:: any([predicate=truePredicate])
 
-		Yields True if ``predicate`` returns True for any value.
+		Yields True if ``predicate`` returns ``True`` for any value.
 
 	.. method:: average([selector=identity])
 
@@ -100,7 +100,7 @@ Aggregation
 
 	.. method:: contains(value[, equals=defaultEquals])
 
-		Yields True if ``equals(value, onNextValue)`` returns True for
+		Yields True if ``equals(value, onNextValue)`` returns ``True`` for
 		any value.
 
 	.. method:: count([predicate=truePredicate])
@@ -118,7 +118,7 @@ Aggregation
 	.. method:: firstAsync([predicate=truePredicate])
 
 		Yields the first value where ``predicate(value)``
-		returns True or Exception.
+		returns ``True`` or Exception.
 
 	.. method:: firstAsyncOrDefault([predicate=truePredicate, default=None])
 
@@ -169,13 +169,13 @@ Aggregation
 	.. method:: singleAsync([predicate=truePredicate])
 
 		Yields the first value where ``predicate(value)``
-		returns True or Exception. If more than one value passes
+		returns ``True`` or Exception. If more than one value passes
 		the predicate, an Exception is yielded.
 
 	.. method:: singleAsyncOrDefault([predicate=truePredicate, default=None])
 
 		Yields the first value where ``predicate(value)``
-		returns True or default. If more than one value passes
+		returns ``True`` or default. If more than one value passes
 		the predicate, an Exception is yielded.
 
 	.. method:: sum([selector=identity])
@@ -466,6 +466,11 @@ Creation
 
 		The value is scheduled on ``scheduler``.
 
+	.. staticmethod:: start(action[, scheduler=Scheduler.default])
+
+		Returns an :class:`Observable` that yields the result of ``action()``
+		scheduled for execution on ``scheduler``.
+
 	.. staticmethod:: throw(exception[, scheduler=Scheduler.constantTimeOperations])
 
 		Returns an :class:`Observable` that yields exception as onError.
@@ -483,6 +488,12 @@ Creation
 		method that is invoked once the :class:`Observable` returned by
 		``observableFactory`` has completed.
 
+	.. staticmethod:: fromFuture(future)
+
+		Returns an :class:`Observable` that yields the value or exception
+		of ``future``. If ``future`` is canceled, an Exception("Future was cancelled")
+		is yielded.
+
 	.. staticmethod:: fromIterable(iterable[, scheduler=Scheduler.default])
 
 		Returns an :class:`Observable` that yields all values from ``iterable``
@@ -495,6 +506,227 @@ Creation
 		Further subscriber share the same underlying handler.
 
 		When the last subscriber unsubscribes, ``removeHandler(onNext)`` is called.
+
+
+Imperative
+----------
+
+.. class:: Observable
+
+	.. staticmethod:: case(selector, sources[, defaultSource=None])
+					  case(selector, sources[, scheduler=Scheduler.constantTimeOperations])
+
+		Subscribes :class:`Observer <rx.observer.Observer>` to
+		``sources[selector()]``. If the key returned by ``selector()``
+		is not found in ``sources`` then the observer is subscribed to
+		``defaultSource``.
+
+		If ``defaultSource == None`` then
+		``defaultSource = Observable.empty(scheduler)``.
+
+	.. staticmethod:: iterableFor(iterable, resultSelector)
+
+		Iterates over ``iterable`` and Concatenates all :class:`Observable`s
+		returned by ``resultSelector(iterationValue)``
+
+	.. staticmethod:: branch(condition, thenSource[, elseSource=None])
+					  branch(condition, thenSource[, scheduler=Scheduler.constantTimeOperations])
+
+		Subscribes :class:`Observer <rx.observer.Observer>` to ``thenSource`` if
+		``condition()`` returns ``True`` otherwise to ``elseSource``.
+
+		If ``elseSource == None`` then ``elseSource = Observable.empty(scheduler)``.
+
+	.. method:: doWhile(condition)
+
+		Resubscribes :class:`Observer <rx.observer.Observer>` to ``self``
+		on completion as long as ``condition()`` returns ``True`` and at least once.
+
+	.. method:: loop(condition)
+
+		Resubscribes :class:`Observer <rx.observer.Observer>` to ``self``
+		on completion as long as ``condition()`` returns ``True``.
+
+
+Multiple
+--------
+
+.. class:: Observable
+
+	.. method:: amb(*others)
+
+		Subscribes :class:`Observer <rx.observer.Observer>` to the first
+		:class:`Observable` that yields a value including ``self``.
+
+	.. staticmethod:: amb(first, *others)
+
+		See :meth:`amb`.
+
+	.. method:: catchException(handler[, exceptionType=Exception])
+
+		Continues an :class:`Observable` that is terminated by an exception
+		that is an instance of ``exceptionType`` with the :class:`Observable` produced
+		by the ``handler``.
+
+	.. method:: catchFallback(*sources)
+
+		Continues an :class:`Observable` that is terminated by an exception
+		with the next :class:`Observable`.
+
+	.. method:: concat(*sources)
+
+		Concatenates all :class:`Observable` values in ``sources``.
+
+	.. staticmethod:: concat(*sources)
+
+		See :meth:`concat`.
+
+	.. method:: merge([maxConcurrency=0])
+
+		Merges all :class:`Observable` values in an :class:`Observable`.
+
+	.. staticmethod:: onErrorResumeNext(*sources)
+
+		Continues an :class:`Observable` that is terminated normally or by an
+		exception with the next :class:`Observable`.
+
+	.. method:: skipUntil(other)
+
+		Skips values until ``other`` yields the first value or completes.
+
+	.. method:: skipUntil(time[, scheduler=Scheduler.timeBasedOperation])
+
+		Skips values until the timer created on ``scheduler`` completes
+		after ``time``.
+
+	.. method:: switch()
+
+		Transforms an :class:`Observable` of :class:`Observable` values
+		into an :class:`Observable` producing values only from the most
+		recent :class:`Observable`.
+
+	.. method:: takeUntil(other)
+
+		Takes values until ``other`` yields the first value or completes.
+
+	.. method:: takeUntil(time[, scheduler=Scheduler.timeBasedOperation])
+
+		Takes values until the timer created on ``scheduler`` completes
+		after ``time``.
+
+	.. method:: zip(*others[, resultSelector=lambda *x: tuple(x)])
+
+		Merges all :class:`Observable` into one observable sequence by
+		combining their elements in a pairwise fashion.
+
+	.. staticmethod:: zip(*sources[, resultSelector=lambda *x: tuple(x)])
+
+		See :meth:`zip(*others)`
+
+
+Single
+------
+
+.. class:: Observable
+
+	.. method:: asObservable()
+
+		Hides the original type of the :class:`Observable`.
+
+	.. method:: buffer(count[, skip=count])
+
+		Buffers ``count`` values and yields the as list. Creates
+		a new buffer every ``skip`` values.
+
+	.. method:: dematerialize()
+
+		Turns an :class:`Observable` of
+		:class:`Notification <rx.notification.Notification>` values
+		into and :class:`Observable` representing this notifications.
+
+	.. method:: do([onNext=noop, onError=noop, onCompleted=noop])
+
+		Invoke ``onNext`` on each value, ``onError`` on exception and
+		``onComplete`` on completion of the :class:`Observable`.
+
+	.. method:: doFinally(action)
+
+		Invokes ``action`` if the :class:`Observable` completes normally
+		or exceptionally.
+
+	.. method:: ignoreElements()
+
+		Returns an :class:`Observable` that ignores all values of the original
+		:class:`Observable`.
+
+	.. method:: materialize()
+
+		Turns values, exception and completion into
+		:class:`Notification <rx.notification.Notification>` values.
+		Completes when the original :class:`Observable` completes normally or
+		exceptionally.
+
+	.. method:: repeatSelf([count=indefinite])
+
+		Repeats the original :class:`Observable` ``count`` times.
+
+	.. method:: retry([count=indefinite])
+
+		Retries the original :class:`Observable` ``count`` times until
+		it does not complete exceptionally.
+
+	.. method:: scan([seed=None, accumulator=None])
+
+		Applies ``accumulator`` over the values of the :class:`Observable`
+		and yields each intermediate result
+
+	.. method:: skipLast(count)
+
+		Skips the last ``count`` values.
+
+	.. method:: skipLastWithTime(time[, scheduler=Scheduler.timeBasedOperation])
+
+		Skips values starting ``time`` before the :class:`Observable` completes.
+		Values are yielded on ``scheduler``.
+
+	.. method:: startWith(*values)
+
+		Prepends ``values`` to the :class:`Observable`.
+
+	.. method:: takeLast(count)
+
+		Takes the last ``count`` values.
+
+	.. method:: takeLastWithTime(time[, scheduler=Scheduler.timeBasedOperation])
+
+		Takes values starting ``time`` before the :class:`Observable` completes.
+		Values are yielded on ``scheduler``.
+
+	.. method:: takeLast(count)
+
+		Takes the last ``count`` values and yields them as list.
+
+	.. method:: takeLastWithTime(time[, scheduler=Scheduler.timeBasedOperation])
+
+		Takes values starting ``time`` before the :class:`Observable` completes
+		and yields them as list
+
+	.. method:: window(count[, skip=count])
+
+		Yields an :class:`Observable` every ``skip`` values that yields
+		it self the next ``count`` values.
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

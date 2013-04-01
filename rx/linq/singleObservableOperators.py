@@ -112,7 +112,7 @@ def retry(self, count = None):
     return Observable.catchFallback(itertools.repeat(self, count))
 Observable.retry = retry
 
-def scan(self, seed=None, accumulator=None):
+def scan(self, accumulator, seed=None):
   assert isinstance(self, Observable)
   assert callable(accumulator)
 

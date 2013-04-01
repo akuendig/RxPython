@@ -45,11 +45,11 @@ Observable.amb = amb
 # def bufferIndividual(self, bufferOpeningSelector, bufferClosingSelector):
 #   pass
 
-def catchException(self, handler):
+def catchException(self, handler, exceptionType=Exception):
   assert isinstance(self, Observable)
   assert callable(handler)
 
-  return CatchException(self, handler)
+  return CatchException(self, handler, exceptionType)
 Observable.catchException = catchException
 
 def catchFallback(*sources):
@@ -106,6 +106,6 @@ def takeUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
     return TakeUntilTime(self, otherOrTime, scheduler)
 Observable.takeUntil = takeUntil
 
-def zipOp(*sources):
-  return Zip(flattedSequence(sources))
+def zipOp(*sources, resultSelector=lambda *x: tuple(x)):
+  return Zip(flattedSequence(sources), resultSelector)
 Observable.zip = zipOp

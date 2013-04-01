@@ -45,7 +45,7 @@ class CatchFallback(Producer):
 
 
 class CatchException(Producer):
-  def __init__(self, source, handler, exceptionType = Exception):
+  def __init__(self, source, handler, exceptionType):
     self.source = source
     self.handler = handler
     self.exceptionType = exceptionType

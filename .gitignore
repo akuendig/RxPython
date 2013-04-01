@@ -1,3 +1,10 @@
-
 *.pyc
+
 docs/build
+docs/fonts
+docs/images
+docs/javascripts
+docs/stylesheets
+docs/index.html
+docs/params.json
+docs/.nojekyll
