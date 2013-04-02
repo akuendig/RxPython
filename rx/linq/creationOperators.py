@@ -11,6 +11,7 @@ from .toObservable import ToObservable
 from .using import Using
 
 from rx.disposable import Disposable
+from rx.exceptions import FutureCanceledException
 from rx.observable import AnonymousObservable, Observable
 from rx.scheduler import Scheduler
 from rx.subject import AsyncSubject
@@ -137,7 +138,7 @@ def fromFuture(future):
 
   def callback(f):
     if f.cancelled():
-      subject.onError(Exception("Future was cancelled"))
+      subject.onError(FutureCanceledException())
     elif f.exception() != None:
       subject.onError(f.exception())
     else:

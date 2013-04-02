@@ -820,7 +820,7 @@ class TestImperative(ReactiveTest):
       return state.count >= 0
 
     o = sched.start(
-      lambda: Observable.returnValue(5).doWhile(condition)
+      lambda: Observable.doWhile(condition, Observable.returnValue(5))
     )
 
     self.assertHasValues(o, [
@@ -879,11 +879,10 @@ class TestImperative(ReactiveTest):
       return state.count >= 0
 
     o = sched.start(
-      lambda: Observable.returnValue(5).doWhile(condition)
+      lambda: Observable.loop(condition, Observable.returnValue(5))
     )
 
     self.assertHasValues(o, [
-        (200, 5),
         (200, 5),
         (200, 5),
         (200, 5),
@@ -2207,7 +2206,7 @@ class TestTime(ReactiveTest):
 
     self.assertHasError(
       o,
-      "Timeout in observable",
+      "Operation timed out",
       205,
       "timeoutRelative should time out after relative time"
     )
@@ -2227,7 +2226,7 @@ class TestTime(ReactiveTest):
 
     self.assertHasError(
       o,
-      "Timeout in observable",
+      "Operation timed out",
       205,
       "timeoutAbsolute should time out after relative time"
     )
@@ -2250,7 +2249,7 @@ class TestTime(ReactiveTest):
 
     self.assertHasError(
       o,
-      "Timeout in observable",
+      "Operation timed out",
       220,
       "timeoutIndividual should time out after individual time"
     )

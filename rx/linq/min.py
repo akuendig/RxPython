@@ -1,3 +1,4 @@
+from rx.exceptions import InvalidOperationException
 from rx.observable import Producer
 import rx.linq.sink
 
@@ -38,7 +39,7 @@ class Min(Producer):
 
     def onCompleted(self):
       if not self.hasValue:
-        self.observer.onError(Exception("Invalid operation, no elements in observable"))
+        self.observer.onError(InvalidOperationException("No elements in observable"))
       else:
         self.observer.onNext(self.lastValue)
         self.observer.onCompleted()

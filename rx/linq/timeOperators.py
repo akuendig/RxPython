@@ -9,6 +9,7 @@ from .timer import Timer
 from .timestamp import TimeStamp
 from .window import Window
 
+from rx.exceptions import TimeoutException
 from rx.observable import Observable
 from rx.scheduler import Scheduler
 
@@ -26,7 +27,7 @@ def bufferWithTime(self, timeSpan, timeShift=None, scheduler=Scheduler.timeBased
   return Buffer(self, timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
 Observable.bufferWithTime = bufferWithTime
 
-def bufferWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeBasedOperation):
+def bufferWithTimeAndCount(self, timeSpan, count, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 
@@ -139,7 +140,7 @@ def timeoutRelative(self, dueTime, other=None, scheduler=Scheduler.timeBasedOper
   assert isinstance(scheduler, Scheduler)
 
   if other == None:
-    other = Observable.throw(Exception("Timeout in observable"))
+    other = Observable.throw(TimeoutException())
 
   assert isinstance(other, Observable)
 
@@ -151,7 +152,7 @@ def timeoutAbsolute(self, dueTime, other=None, scheduler=Scheduler.timeBasedOper
   assert isinstance(scheduler, Scheduler)
 
   if other == None:
-    other = Observable.throw(Exception("Timeout in observable"))
+    other = Observable.throw(TimeoutException())
 
   assert isinstance(other, Observable)
 
@@ -164,7 +165,7 @@ def timeoutIndividual(self, durationSelector, firstTimeout=None, other=None):
   if firstTimeout == None:
     firstTimeout = Observable.never()
   if other == None:
-    other = Observable.throw(Exception("Timeout in observable"))
+    other = Observable.throw(TimeoutException())
 
   assert isinstance(firstTimeout, Observable)
   assert isinstance(other, Observable)
@@ -200,7 +201,7 @@ def windowWithTime(self, timeSpan, timeShift=None, scheduler=Scheduler.timeBased
   return Window(self, timeSpan=timeSpan, timeShift=timeShift, scheduler=scheduler)
 Observable.windowWithTime = windowWithTime
 
-def windowWithTimeAndCount(self, timeSpan, count=None, scheduler=Scheduler.timeBasedOperation):
+def windowWithTimeAndCount(self, timeSpan, count, scheduler=Scheduler.timeBasedOperation):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 

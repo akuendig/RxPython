@@ -6,6 +6,7 @@ from .mostRecent import MostRecent
 from .next import Next
 from .where import Where
 
+from rx.exceptions import InvalidOperationException
 from rx.internal import Struct
 from rx.observable import Observable
 from rx.observer import AnonymousObserver
@@ -59,7 +60,7 @@ def firstOrDefaultInternal(source, throwOnEmpty, default):
 
   if not state.hasValue:
     if throwOnEmpty:
-      raise Exception("Invalid operation, no elements in observable")
+      raise InvalidOperationException("No elements in observable")
     else:
       return default
 
@@ -150,7 +151,7 @@ def lastOrDefaultInternal(source, throwOnEmpty, default):
 
   if  not state.hasValue:
     if throwOnEmpty:
-      raise Exception("Invalid operation, no elements in observable")
+      raise InvalidOperationException("No elements in observable")
     else:
       return default
 
@@ -207,7 +208,7 @@ def singleOrDefaultInternal(source, throwOnEmpty, default):
 
   def onNext(value):
     if state.hasValue:
-      state.ex = Exception("Invalid operation, more than one element in observable")
+      state.ex = InvalidOperationException("More than one element in observable")
       state.event.set()
 
     state.value = value
@@ -228,7 +229,7 @@ def singleOrDefaultInternal(source, throwOnEmpty, default):
 
   if  not state.hasValue:
     if throwOnEmpty:
-      raise Exception("Invalid operation, no elements in observable")
+      raise InvalidOperationException("No elements in observable")
     else:
       return default
 

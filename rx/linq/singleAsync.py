@@ -1,3 +1,4 @@
+from rx.exceptions import InvalidOperationException
 from rx.observable import Producer
 import rx.linq.sink
 
@@ -32,7 +33,7 @@ class SingleAsync(Producer):
 
       if b:
         if self.hasValue:
-          self.observer.onError(Exception("Invalid operation, more than one element in observable"))
+          self.observer.onError(InvalidOperationException("More than one element in observable"))
           self.dispose()
           return
 
@@ -45,7 +46,7 @@ class SingleAsync(Producer):
 
     def onCompleted(self):
       if not self.hasValue and self.parent.throwOnEmpty:
-        self.observer.onError(Exception("Invalid operation, no elements in observable"))
+        self.observer.onError(InvalidOperationException("No elements in observable"))
       else:
         self.observer.onNext(self.value)
         self.observer.onCompleted()

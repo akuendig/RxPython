@@ -63,7 +63,7 @@ def refCount(self):
   return RefCount(self)
 Observable.refCount = refCount
 
-def replay(self, selector=None, bufferSize=sys.maxsize, window=sys.maxsize, scheduler=Scheduler.currentThread):
+def replay(self, bufferSize=sys.maxsize, window=sys.maxsize, selector=None, scheduler=Scheduler.currentThread):
   assert isinstance(self, Observable)
   assert isinstance(scheduler, Scheduler)
 

@@ -106,6 +106,6 @@ def takeUntil(self, otherOrTime, scheduler=Scheduler.timeBasedOperation):
     return TakeUntilTime(self, otherOrTime, scheduler)
 Observable.takeUntil = takeUntil
 
-def zipOp(*sources, resultSelector=lambda *x: tuple(x)):
+def zipOp(*sources, resultSelector=lambda *x: x):
   return Zip(flattedSequence(sources), resultSelector)
 Observable.zip = zipOp

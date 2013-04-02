@@ -28,11 +28,11 @@ def case(selector, sources, schedulerOrDefaultSource=None):
     return Case(selector, sources, schedulerOrDefaultSource)
 Observable.case = case
 
-def doWhile(self, condition):
-  assert isinstance(self, Observable)
+def doWhile(condition, source):
+  assert isinstance(source, Observable)
   assert callable(condition)
 
-  return DoWhile(self, condition)
+  return DoWhile(source, condition)
 Observable.doWhile = doWhile
 
 def iterableFor(iterable, resultSelector):
@@ -56,7 +56,7 @@ def branch(condition, thenSource, schedulerOrElseSource=None):
     return If(condition, thenSource, schedulerOrElseSource)
 Observable.branch = branch
 
-def loop(source, condition):
+def loop(condition, source):
   assert isinstance(source, Observable)
   assert callable(condition)
 

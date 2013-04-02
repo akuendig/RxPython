@@ -1,4 +1,5 @@
 from rx.disposable import SingleAssignmentDisposable
+from rx.exceptions import DisposedException
 from rx.observer import Observer
 import rx.linq.sink
 from queue import Empty, Queue
@@ -40,7 +41,7 @@ class GetIterator(Observer):
     self.gate.acquire()
 
     if self.disposed:
-      raise Exception("Object already disposed")
+      raise DisposedException()
 
     try:
       return self.queue.get(True, 0)

@@ -1,3 +1,4 @@
+from rx.exceptions import InvalidOperationException
 from rx.observable import Producer
 import rx.linq.sink
 
@@ -37,7 +38,7 @@ class FirstAsync(Producer):
 
     def onCompleted(self):
       if self.parent.throwOnEmpty:
-        self.observer.onError(Exception("Invalid operation, no elements in observable"))
+        self.observer.onError(InvalidOperationException("No elements in observable"))
       else:
         self.observer.onNext(self.parent.defaultValue)
         self.observer.onCompleted()

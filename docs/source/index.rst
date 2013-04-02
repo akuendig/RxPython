@@ -6,6 +6,16 @@
 Welcome to RxPython's documentation!
 ====================================
 
+This is the documentation for the `RxPython <http://akuendig.github.com/RxPython>`_ project.
+
+The original implementation in C# can be found `here <http://rx.codeplex.com>`_.
+
+For a good introduction to operators you can visis:
+
+* http://rxwiki.wikidot.com/101samples
+* http://social.msdn.microsoft.com/Forums/en-US/rx/threads
+* http://blogs.msdn.com/b/rxteam/
+
 Contents:
 
 .. toctree::

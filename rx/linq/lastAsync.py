@@ -1,3 +1,4 @@
+from rx.exceptions import InvalidOperationException
 from rx.observable import Producer
 import rx.linq.sink
 
@@ -36,7 +37,7 @@ class LastAsync(Producer):
 
     def onCompleted(self):
       if not self.hasValue and self.parent.throwOnEmpty:
-        self.observer.onError(Exception("Invalid operation, no elements in observable"))
+        self.observer.onError(InvalidOperationException("No elements in observable"))
       else:
         self.observer.onNext(self.value)
         self.observer.onCompleted()

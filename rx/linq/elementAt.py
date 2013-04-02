@@ -34,7 +34,7 @@ class ElementAt(Producer):
 
     def onCompleted(self):
       if self.parent.throwOnEmpty:
-        self.observer.onError(Exception("Argument out of range: index"))
+        self.observer.onError(IndexError("Index %s > %s" % (self.parent.index, self.parent.index + self.i)))
       else:
         self.observer.onNext(self.parent.default)
         self.observer.onCompleted()
