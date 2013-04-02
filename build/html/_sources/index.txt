@@ -6,6 +6,10 @@
 Welcome to RxPython's documentation!
 ====================================
 
+This is the documentation for the `RxPython <http://akuendig.github.com/RxPython>`_ project.
+
+The original implementation in C# can be found `here <http://rx.codeplex.com>`_
+
 Contents:
 
 .. toctree::
