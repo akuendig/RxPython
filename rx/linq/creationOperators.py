@@ -105,10 +105,12 @@ def start(action, scheduler=Scheduler.default):
     try:
       subject.onNext(action())
       subject.onCompleted()
-    except Exception, e:
+    except Exception as e:
       subject.onError(e)
 
     return Disposable.empty()
+
+  scheduler.schedule(scheduled)
 
   return subject.asObservable()
 Observable.start = start
@@ -148,6 +150,7 @@ def fromFuture(future):
     future.add_done_callback(callback)
 
   return subject
+Observable.fromFuture = fromFuture
 
 def fromEvent(addHandler, removeHandler, scheduler=Scheduler.default):
   assert callable(addHandler)

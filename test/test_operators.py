@@ -669,7 +669,7 @@ class TestCreation(ReactiveTest):
         (200, 5),
       ],
       200,
-      "start should exectue action on scheduler and yield result"
+      "start should execute action on scheduler and yield result"
     )
 
   def test_throw(self):
@@ -1432,7 +1432,7 @@ class TestSingle(ReactiveTest):
     sched, xs, messages = self.simpleHot(1, 2, 3)
 
     o = sched.start(
-      lambda: xs.scan(0, lambda acc, x: acc + x)
+      lambda: xs.scan(lambda acc, x: acc + x, 0)
     )
 
     self.assertHasValues(o, [
